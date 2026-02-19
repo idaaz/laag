@@ -6,12 +6,12 @@ import type { HabitRow, HabitQuestionRow, HabitCompletionAnswerRow } from "@/lib
 
 const HABIT_QUERY_KEY = ["habits"];
 
-export function useHabits(userId?: string, page = 1, limit = 10) {
+export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
   const supabase = getSupabaseBrowserClient();
   const queryClient = useQueryClient();
 
   const baseKey = [...HABIT_QUERY_KEY, userId];
-  const queryKey = [...baseKey, { page, limit }];
+  const queryKey = [...baseKey, { page, limit, search }];
 
   const habitsQuery = useQuery({
     queryKey,
@@ -21,10 +21,16 @@ export function useHabits(userId?: string, page = 1, limit = 10) {
       const from = (page - 1) * limit;
       const to = from + limit - 1;
 
-      const { data, error, count } = await supabase
+      let query = supabase
         .from("habits")
         .select("*", { count: "exact" })
-        .eq("user_id", userId)
+        .eq("user_id", userId);
+
+      if (search.trim()) {
+        query = query.ilike("name", `%${search.trim()}%`);
+      }
+
+      const { data, error, count } = await query
         .order("created_at", { ascending: false })
         .range(from, to);
 

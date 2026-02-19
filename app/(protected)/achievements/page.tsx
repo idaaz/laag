@@ -86,10 +86,10 @@ export default function AchievementsPage() {
           <Skeleton className="h-32 w-full rounded-xl" />
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <ProgressRing percentage={completionPercentage} size={100} strokeWidth={8} />
+            <ProgressRing percentage={completionPercentage} size={100} strokeWidth={8} color="var(--k-gold)" />
             <div className="text-center">
               <p className="text-sm text-muted-foreground">
-                {achievementsQuery.data?.unlockedCount} of {achievementsQuery.data?.totalCount} achievements
+                <span className="text-[var(--k-gold)] font-bold">{achievementsQuery.data?.unlockedCount}</span> of <span className="text-[var(--k-gray)] font-bold">{achievementsQuery.data?.totalCount}</span> achievements
               </p>
               {achievementsQuery.data && achievementsQuery.data.locked.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-1">

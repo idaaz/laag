@@ -30,9 +30,9 @@ function TrendIndicator({ trend }: { trend: "improving" | "worsening" | "stable"
   const Icon = trend === "improving" ? TrendingDown : trend === "worsening" ? TrendingUp : Minus;
   const color =
     trend === "improving"
-      ? "text-green-600 dark:text-green-400"
+      ? "text-[var(--k-green)]"
       : trend === "worsening"
-        ? "text-red-600 dark:text-red-400"
+        ? "text-[var(--k-red)]"
         : "text-muted-foreground";
 
   return (
@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
             {loading ? (
               <Skeleton className="mt-1 h-7 w-16" />
             ) : (
-              <p className="mt-1 text-xl font-semibold tabular-nums">
+              <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--k-orange)]">
                 {model?.burnoutIndex.toFixed(1) ?? "0.0"}
               </p>
             )}
@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
             {loading ? (
               <Skeleton className="mt-1 h-7 w-16" />
             ) : (
-              <p className="mt-1 text-xl font-semibold tabular-nums">
+              <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--k-purple)]">
                 {model?.overconfidenceIndex.toFixed(1) ?? "0.0"}
               </p>
             )}
@@ -138,6 +138,7 @@ export default function AnalyticsPage() {
               value={model.productivityTrend.averageProductivity}
               subtitle="Daily average"
               icon={BarChart3}
+              tone="focus"
               trend={model.productivityTrend.weekOverWeekChange > 0 ? "up" : model.productivityTrend.weekOverWeekChange < 0 ? "down" : "neutral"}
               trendValue={`${model.productivityTrend.weekOverWeekChange > 0 ? "+" : ""}${model.productivityTrend.weekOverWeekChange}%`}
             />
@@ -146,12 +147,14 @@ export default function AnalyticsPage() {
               value={model.productivityTrend.bestDay?.productivity.toFixed(1) ?? "N/A"}
               subtitle={model.productivityTrend.bestDay?.date ?? "No data"}
               icon={TrendingUp}
+              tone="focus"
             />
             <InsightCard
               title="Category Balance"
               value={model.categoryBreakdown[0]?.category ?? "N/A"}
               subtitle={`${Math.round(model.categoryBreakdown[0]?.percentage ?? 0)}% of time`}
               icon={PieChart}
+              tone="info"
             />
           </div>
 
@@ -214,7 +217,7 @@ export default function AnalyticsPage() {
           {loading ? (
             <Skeleton className="h-10 w-20 mt-1" />
           ) : (
-            <p className="text-3xl font-semibold mt-1 tabular-nums">
+            <p className="text-3xl font-semibold mt-1 tabular-nums text-[var(--k-orange)]">
               {model?.burnoutIndex.toFixed(1) ?? "0.0"}
             </p>
           )}
@@ -227,7 +230,7 @@ export default function AnalyticsPage() {
           {loading ? (
             <Skeleton className="h-10 w-20 mt-1" />
           ) : (
-            <p className="text-3xl font-semibold mt-1 tabular-nums">
+            <p className="text-3xl font-semibold mt-1 tabular-nums text-[var(--k-purple)]">
               {model?.overconfidenceIndex.toFixed(1) ?? "0.0"}
             </p>
           )}

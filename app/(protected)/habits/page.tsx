@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Edit, Flame, Plus, Trash2 } from "lucide-react";
+import { Edit, Flame, Plus, Search, Trash2 } from "lucide-react";
 import { CompactListItem } from "@/components/structure/CompactListItem";
 import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
 import { PageFrame } from "@/components/structure/PageFrame";
@@ -11,6 +11,7 @@ import { HabitCompletionDialog } from "@/components/habits/HabitCompletionDialog
 import { HabitFormDialog, type QuestionDraft } from "@/components/habits/HabitFormDialog";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,12 +39,13 @@ export default function HabitsPage() {
   const router = useRouter();
 
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
 
   // Subscribe to changes for habits
   useRealtime(["habits"], [["habits", userId ?? ""]]);
 
   const { habitsQuery, createHabit, updateHabit, deleteHabit, completeHabit, getHabitQuestions } =
-    useHabits(userId, page, PAGE_SIZE);
+    useHabits(userId, page, PAGE_SIZE, search);
   const { awardXP } = useXP(userId);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -174,10 +176,10 @@ export default function HabitsPage() {
       : 0;
 
     return [
-      { label: "Total Habits", value: total },
-      { label: "Active Streaks", value: activeStreaks, color: activeStreaks > 0 ? "success" as const : "default" as const },
-      { label: "Avg Streak", value: `${avgStreak}d` },
-      { label: "Best Streak", value: `${bestStreak}d`, color: bestStreak >= 7 ? "success" as const : "default" as const }
+      { label: "Total Habits", value: total, color: "info" as const },
+      { label: "Active Streaks", value: activeStreaks, color: "achievement" as const },
+      { label: "Avg Streak", value: `${avgStreak}d`, color: "score" as const },
+      { label: "Best Streak", value: `${bestStreak}d`, color: "achievement" as const }
     ];
   }, [habitList]);
 
@@ -235,7 +237,19 @@ export default function HabitsPage() {
           </div>
 
           {/* Main List */}
-          <div className="md:col-span-2 md:order-1 rounded-xl border border-border/80 bg-card/85 p-4 min-h-[360px] flex flex-col">
+          <div className="md:col-span-2 md:order-1 rounded-xl border border-border/80 bg-card/85 p-4 min-h-[360px] flex flex-col gap-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  if (page !== 1) setPage(1);
+                }}
+                placeholder="Search habits..."
+                className="pl-9"
+              />
+            </div>
             <div className="flex-1 min-h-0 overflow-y-auto laag-scroll pr-1">
               {((loading && !userId) || habitsQuery.isLoading) ? (
                 <div className="space-y-3 py-1">

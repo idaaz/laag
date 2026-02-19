@@ -22,7 +22,7 @@ export function XPLineChart({ data }: { data: Array<{ date: string; xp: number }
           <Line
             type="monotone"
             dataKey="xp"
-            stroke="hsl(var(--primary))"
+            stroke="var(--k-blue)"
             strokeWidth={2.5}
             dot={false}
           />

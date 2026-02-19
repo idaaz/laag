@@ -1,6 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
 export function TaskFilters({
   query,
@@ -15,11 +16,15 @@ export function TaskFilters({
 }) {
   return (
     <div className="grid gap-2 md:grid-cols-[1fr,200px]">
-      <Input
-        value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
-        placeholder="Search tasks..."
-      />
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search tasks..."
+          className="pl-9"
+        />
+      </div>
       <select
         className="h-10 rounded-md border border-border bg-background px-3 text-sm"
         value={status}

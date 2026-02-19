@@ -117,7 +117,7 @@ export function AchievementCard({ achievement, className }: AchievementCardProps
                         <span className="text-muted-foreground">
                             Unlocked {new Date(achievement.unlockedAt!).toLocaleDateString()}
                         </span>
-                        <span className="font-medium text-primary">
+                        <span className="font-medium text-[var(--k-blue)]">
                             +{achievement.xp_reward} XP
                         </span>
                     </>

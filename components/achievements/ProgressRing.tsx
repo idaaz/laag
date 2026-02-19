@@ -4,6 +4,7 @@ interface ProgressRingProps {
     percentage: number;
     size?: number;
     strokeWidth?: number;
+    color?: string;
     className?: string;
 }
 
@@ -11,6 +12,7 @@ export function ProgressRing({
     percentage,
     size = 120,
     strokeWidth = 8,
+    color = "hsl(var(--primary))",
     className
 }: ProgressRingProps) {
     const radius = (size - strokeWidth) / 2;
@@ -35,7 +37,7 @@ export function ProgressRing({
                     cy={size / 2}
                     r={radius}
                     fill="none"
-                    stroke="hsl(var(--primary))"
+                    stroke={color}
                     strokeWidth={strokeWidth}
                     strokeDasharray={circumference}
                     strokeDashoffset={offset}
@@ -45,7 +47,7 @@ export function ProgressRing({
             </svg>
             {/* Percentage text */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold tabular-nums">{Math.round(percentage)}%</span>
+                <span className="text-2xl font-bold tabular-nums" style={{ color }}>{Math.round(percentage)}%</span>
                 <span className="text-xs text-muted-foreground">Complete</span>
             </div>
         </div>

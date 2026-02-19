@@ -6,7 +6,9 @@ import { LayoutGroup } from "framer-motion";
 import { SideRail } from "@/components/structure/SideRail";
 import { TopNav } from "@/components/structure/TopNav";
 import { BottomTaskBar } from "@/components/structure/BottomTaskBar";
-import { MobileTabBar } from "@/components/structure/MobileTabBar";
+
+import { MobileFluidNav } from "@/components/structure/MobileFluidNav";
+import { MobileHeader } from "@/components/structure/MobileHeader";
 
 type ProtectedShellProps = {
   children: ReactNode;
@@ -19,7 +21,8 @@ export function ProtectedShell({ children, modal, initialEmail }: ProtectedShell
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-12 lg:pb-0">
+    <div className="min-h-screen bg-background text-foreground lg:pb-0">
+      <MobileHeader />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-md focus:bg-card focus:px-3 focus:py-2"
@@ -33,7 +36,7 @@ export function ProtectedShell({ children, modal, initialEmail }: ProtectedShell
         onToggleMobileRail={() => setMobileRailOpen((current) => !current)}
       />
       <LayoutGroup id="laag-shared-layout">
-        <div className="h-[calc(100vh-64px)] px-0 pb-28 pt-2 lg:px-4 lg:py-3 lg:pb-24">
+        <div className="h-[calc(100vh-64px)] px-0 pt-14 lg:px-4 lg:py-3 lg:pb-24">
           <div className="h-full grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-3">
             <SideRail
               expanded={railExpanded}
@@ -52,7 +55,7 @@ export function ProtectedShell({ children, modal, initialEmail }: ProtectedShell
         </div>
         {modal}
       </LayoutGroup>
-      <MobileTabBar onOpenMenu={() => setMobileRailOpen(true)} />
+      <MobileFluidNav />
       <BottomTaskBar />
     </div>
   );

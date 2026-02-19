@@ -139,24 +139,26 @@ function MetricCard({
   suffix?: string;
   icon: ComponentType<{ className?: string }>;
   decimals?: number;
-  tone?: "default" | "success" | "warning" | "danger";
+  tone?: "default" | "success" | "danger" | "warning" | "info" | "focus" | "score" | "achievement" | "calibration";
 }) {
   const display = useAnimatedValue(value);
   const Icon = icon;
   const toneClass =
-    tone === "success"
-      ? "text-success"
-      : tone === "warning"
-        ? "text-warning"
-        : tone === "danger"
-          ? "text-destructive"
-          : "text-foreground";
+    tone === "success" ? "text-[var(--k-green)]" :
+      tone === "danger" ? "text-[var(--k-red)]" :
+        tone === "warning" ? "text-[var(--k-orange)]" :
+          tone === "info" ? "text-[var(--k-blue)]" :
+            tone === "focus" ? "text-[var(--k-teal)]" :
+              tone === "score" ? "text-[var(--k-indigo)]" :
+                tone === "achievement" ? "text-[var(--k-gold)]" :
+                  tone === "calibration" ? "text-[var(--k-purple)]" :
+                    "text-foreground";
   const shownValue =
     decimals > 0 ? Number(display.toFixed(decimals)).toFixed(decimals) : String(Math.round(display));
 
   return (
     <AppCard className="h-full" padded={false}>
-      <div className="p-3 space-y-2">
+      <div className="p-3 space-y-2" role="status" aria-label={`${shownValue}${suffix ?? ""} ${label}`}>
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-muted-foreground md:text-xs">{label}</p>
           <Icon className={toneClass} />
@@ -182,7 +184,7 @@ function MiniXPTrend({ data }: { data: Array<{ date: string; xp: number }> }) {
           <Line
             type="monotone"
             dataKey="xp"
-            stroke="hsl(var(--primary))"
+            stroke="var(--k-blue)"
             strokeWidth={2.5}
             dot={{ r: 2 }}
             activeDot={{ r: 4 }}
@@ -608,26 +610,27 @@ export default function DashboardPage() {
 
         <div className="col-span-full">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
-            <MetricCard label="XP" value={summary.data?.totalXP ?? 0} icon={BarChart3} tone="success" />
+            <MetricCard label="XP" value={summary.data?.totalXP ?? 0} icon={BarChart3} tone="info" />
             <MetricCard
               label="Score"
               value={discipline.score}
               suffix="%"
               icon={Activity}
-              tone={discipline.score < 45 ? "danger" : "default"}
+              tone={discipline.score < 45 ? "danger" : "score"}
             />
             <MetricCard
               label="Streak"
               value={dashboardQuery.data?.streak.currentStreak ?? 0}
               icon={Flame}
-              tone="warning"
+              tone="achievement"
             />
-            <MetricCard label="Done" value={taskCompletion} suffix="%" icon={CheckSquare} />
+            <MetricCard label="Done" value={taskCompletion} suffix="%" icon={CheckSquare} tone="success" />
             <MetricCard
               label="Deep Work"
               value={dashboardQuery.data?.deepWorkHours ?? 0}
               suffix="h"
               icon={Clock3}
+              tone="focus"
               decimals={1}
             />
             <MetricCard

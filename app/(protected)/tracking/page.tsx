@@ -75,18 +75,21 @@ export default function TrackingPage() {
               value={`${analytics.focusScore}%`}
               subtitle="Education + Work vs Others"
               icon={Target}
+              tone="score"
             />
             <InsightCard
               title="Total Visits"
               value={analytics.totalVisits}
               subtitle={`${analytics.uniqueDomains} unique domains`}
               icon={Globe}
+              tone="info"
             />
             <InsightCard
               title="Top Category"
               value={analytics.categories[0]?.category || "N/A"}
               subtitle={`${Math.round(analytics.categories[0]?.percentage || 0)}% of visits`}
               icon={TrendingUp}
+              tone="info"
             />
           </div>
 
@@ -103,7 +106,7 @@ export default function TrackingPage() {
                     <p className="text-xs font-medium truncate" title={stat.domain}>
                       {stat.domain}
                     </p>
-                    <p className="text-lg font-semibold mt-1 tabular-nums">{stat.count}</p>
+                    <p className="text-lg font-semibold mt-1 tabular-nums text-[var(--k-blue)]">{stat.count}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {Math.round(stat.percentage)}%
                     </p>

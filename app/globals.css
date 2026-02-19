@@ -26,6 +26,29 @@
     --success: 142 71% 35%;
     --warning: 30 95% 45%;
     --radius: 0.625rem;
+
+    /* Global KPI Color System */
+    --k-green: #22C55E;
+    --k-green-700: #15803D;
+    --k-red: #EF4444;
+    --k-red-700: #B91C1C;
+    --k-orange: #F97316;
+    --k-orange-700: #C2410C;
+    --k-blue: #3B82F6;
+    --k-blue-700: #1D4ED8;
+    --k-teal: #14B8A6;
+    --k-teal-700: #0F766E;
+    --k-indigo: #6366F1;
+    --k-indigo-600: #4F46E5;
+    --k-gold: #FBBF24;
+    --k-gold-700: #D97706;
+    --k-gray: #9CA3AF;
+    --k-gray-700: #4B5563;
+    --k-purple: #A78BFA;
+    --k-purple-600: #7C3AED;
+    --k-pink: #EC4899;
+    --k-pink-600: #DB2777;
+
     --grid-margin: 16px;
     --grid-gutter: 12px;
     --baseline: 8px;
@@ -118,6 +141,7 @@
     opacity: 0;
     transform: translateY(8px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -129,6 +153,7 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+
   to {
     opacity: 0;
     transform: translateY(8px) scale(0.98);
@@ -136,6 +161,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

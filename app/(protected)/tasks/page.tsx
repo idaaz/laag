@@ -78,11 +78,11 @@ export default function TasksPage() {
     const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return [
-      { label: "Total Tasks", value: total },
+      { label: "Total Tasks", value: total, color: "info" as const },
       { label: "Pending", value: pending, color: pending > 0 ? "warning" as const : "default" as const },
       { label: "Completed", value: completed, color: completed > 0 ? "success" as const : "default" as const },
-      { label: "Overdue", value: overdue, color: overdue > 0 ? "destructive" as const : "default" as const },
-      { label: "Success Rate", value: `${successRate}%`, color: successRate >= 60 ? "success" as const : "default" as const }
+      { label: "Overdue", value: overdue, color: overdue > 0 ? "danger" as const : "default" as const },
+      { label: "Success Rate", value: `${successRate}%`, color: "score" as const }
     ];
   }, [tasksQuery.data]);
 
@@ -113,7 +113,7 @@ export default function TasksPage() {
       >
         <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* KPI Panel - Shows on top on mobile, right side on desktop */}
-          <div className="md:order-2">
+          <div className="md:order-2 sticky top-0 z-10 self-start">
             <KPIPanel title="Tasks Overview" items={kpis} />
           </div>
 

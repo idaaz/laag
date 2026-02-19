@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "@/lib/utils";
 
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -19,20 +20,43 @@ import { useRealtime } from "@/hooks/useRealtime";
 function SmallMetric({
   label,
   value,
-  icon
+  icon,
+  tone = "default"
 }: {
   label: string;
   value: string;
   icon: ComponentType<{ className?: string }>;
+  tone?: "default" | "success" | "danger" | "warning" | "info" | "focus" | "score" | "achievement" | "calibration";
 }) {
   const Icon = icon;
   return (
-    <article className="rounded-xl border border-border/80 bg-card/85 p-3">
+    <article className="rounded-xl border border-border/80 bg-card/85 p-3" role="status" aria-label={`${label}: ${value}`}>
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <Icon className="h-4 w-4 text-primary" />
+        <Icon className={cn(
+          "h-4 w-4",
+          tone === "success" && "text-[var(--k-green)]",
+          tone === "danger" && "text-[var(--k-red)]",
+          tone === "warning" && "text-[var(--k-orange)]",
+          tone === "info" && "text-[var(--k-blue)]",
+          tone === "focus" && "text-[var(--k-teal)]",
+          tone === "score" && "text-[var(--k-indigo)]",
+          tone === "achievement" && "text-[var(--k-gold)]",
+          tone === "calibration" && "text-[var(--k-purple)]",
+          tone === "default" && "text-primary"
+        )} />
       </div>
-      <p className="text-2xl font-semibold mt-1">{value}</p>
+      <p className={cn(
+        "text-2xl font-semibold mt-1",
+        tone === "success" && "text-[var(--k-green)]",
+        tone === "danger" && "text-[var(--k-red)]",
+        tone === "warning" && "text-[var(--k-orange)]",
+        tone === "info" && "text-[var(--k-blue)]",
+        tone === "focus" && "text-[var(--k-teal)]",
+        tone === "score" && "text-[var(--k-indigo)]",
+        tone === "achievement" && "text-[var(--k-gold)]",
+        tone === "calibration" && "text-[var(--k-purple)]"
+      )}>{value}</p>
     </article>
   );
 }
@@ -173,13 +197,13 @@ export default function DailyLogsPage() {
       ) : (
         <>
           <div className="col-span-full md:col-span-2 lg:col-span-4">
-            <SmallMetric label="Focus" value={`${stats.focusScore}%`} icon={Target} />
+            <SmallMetric label="Focus" value={`${stats.focusScore}%`} icon={Target} tone="score" />
           </div>
           <div className="col-span-full md:col-span-2 lg:col-span-4">
-            <SmallMetric label="Deep" value={`${stats.deepWorkHours}h`} icon={Brain} />
+            <SmallMetric label="Deep" value={`${stats.deepWorkHours}h`} icon={Brain} tone="focus" />
           </div>
           <div className="col-span-full md:col-span-2 lg:col-span-4">
-            <SmallMetric label="Energy" value={`${stats.avgEnergy}`} icon={Flame} />
+            <SmallMetric label="Energy" value={`${stats.avgEnergy}`} icon={Flame} tone="achievement" />
           </div>
         </>
       )}
