@@ -1,0 +1,17 @@
+-- Disable RLS on all tables to remove login requirements
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE habits DISABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE relapse_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE xp_events DISABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
+ALTER TABLE timers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE screen_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE discipline_snapshots DISABLE ROW LEVEL SECURITY;
+ALTER TABLE habit_questions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE habit_completion_answers DISABLE ROW LEVEL SECURITY;
+
+-- Ensure public access policies exist just in case (optional if RLS is disabled, but good for safety)
+DROP POLICY IF EXISTS "Public Access" ON users;
+CREATE POLICY "Public Access" ON users FOR ALL USING (true);

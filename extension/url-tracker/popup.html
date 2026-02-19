@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            width: 320px;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #09090b;
+            color: #fafafa;
+            margin: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #27272a;
+            padding-bottom: 8px;
+        }
+        .logo { color: #3b82f6; font-weight: bold; font-family: monospace; }
+        .title { font-size: 16px; font-weight: 600; }
+        
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em; }
+        input {
+            background: #18181b;
+            border: 1px solid #27272a;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+        input:focus { border-color: #3b82f6; }
+        
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #27272a; cursor: not-allowed; }
+
+        .status {
+            font-size: 12px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .status.connected { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+        .status.disconnected { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+        .history {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .history-item {
+            font-size: 11px;
+            padding: 6px;
+            background: #18181b;
+            border-radius: 4px;
+            border-left: 2px solid #3b82f6;
+        }
+        .history-url { color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .history-title { font-weight: 500; margin-bottom: 2px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="logo">///</span>
+            <span class="title">LAAG Tracker</span>
+        </div>
+
+        <div id="status" class="status disconnected">Not Configured</div>
+
+        <div class="field">
+            <label for="userId">User ID</label>
+            <input type="text" id="userId" placeholder="Enter your User ID from LAAG settings">
+            <button id="saveBtn">Save & Connect</button>
+        </div>
+
+        <div class="history">
+            <label>Recent Activity</label>
+            <div id="historyList">
+                <div style="font-size: 11px; color: #71717a; text-align: center; padding: 10px;">No recent activity</div>
+            </div>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

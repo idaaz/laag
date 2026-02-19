@@ -1,0 +1,58 @@
+
+> laag-life-as-a-game@0.1.0 typecheck
+> tsc --noEmit
+
+hooks/useTracking.ts(64,82): error TS2345: Argument of type '{ p_user_id: string; p_start_date: string; }' is not assignable to parameter of type 'undefined'.
+lib/engines/achievementEngine.ts(105,57): error TS2339: Property 'delta_xp' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(106,44): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(107,56): error TS2339: Property 'longest_streak' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(108,47): error TS2339: Property 'is_active' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(113,55): error TS2339: Property 'log_date' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(113,80): error TS2339: Property 'log_date' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(118,31): error TS2339: Property 'log_date' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(131,50): error TS2339: Property 'created_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(137,60): error TS2339: Property 'priority' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(137,85): error TS2339: Property 'priority' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(138,58): error TS2339: Property 'deadline_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(138,75): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(138,93): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(138,110): error TS2339: Property 'deadline_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(140,28): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(140,54): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(144,28): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(144,54): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(151,63): error TS2339: Property 'relapse_count' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(155,48): error TS2339: Property 'created_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(155,103): error TS2339: Property 'delta_xp' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(158,45): error TS2339: Property 'current_value' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(166,63): error TS2339: Property 'study_minutes' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(167,65): error TS2339: Property 'workout_minutes' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(173,28): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(173,54): error TS2339: Property 'completed_at' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(176,39): error TS2339: Property 'truth_mode_count' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(253,63): error TS2339: Property 'code' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(270,18): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: never, options?: { count?: "exact" | "planned" | "estimated" | undefined; } | undefined): PostgrestFilterBuilder<{ PostgrestVersion: "12"; }, never, never, null, "achievements", never, "POST">', gave the following error.
+    Argument of type '{ user_id: string; code: string; title: string; description: string; meta: {}; }' is not assignable to parameter of type 'never'.
+  Overload 2 of 2, '(values: never[], options?: { count?: "exact" | "planned" | "estimated" | undefined; defaultToNull?: boolean | undefined; } | undefined): PostgrestFilterBuilder<{ PostgrestVersion: "12"; }, never, never, null, "achievements", never, "POST">', gave the following error.
+    Object literal may only specify known properties, and 'user_id' does not exist in type 'never[]'.
+lib/engines/achievementEngine.ts(288,50): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: never, options?: { count?: "exact" | "planned" | "estimated" | undefined; } | undefined): PostgrestFilterBuilder<{ PostgrestVersion: "12"; }, never, never, null, "xp_events", never, "POST">', gave the following error.
+    Argument of type '{ user_id: string; source_type: string; source_id: any; delta_xp: number; reason: string; }' is not assignable to parameter of type 'never'.
+  Overload 2 of 2, '(values: never[], options?: { count?: "exact" | "planned" | "estimated" | undefined; defaultToNull?: boolean | undefined; } | undefined): PostgrestFilterBuilder<{ PostgrestVersion: "12"; }, never, never, null, "xp_events", never, "POST">', gave the following error.
+    Object literal may only specify known properties, and 'user_id' does not exist in type 'never[]'.
+lib/engines/achievementEngine.ts(291,47): error TS2339: Property 'id' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(299,57): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: never, options?: { onConflict?: string | undefined; ignoreDuplicates?: boolean | undefined; count?: "exact" | "planned" | "estimated" | undefined; } | undefined): PostgrestFilterBuilder<{ ...; }, ... 5 more ..., "POST">', gave the following error.
+    Argument of type '{ user_id: string; achievement_code: string; current_value: number; target_value: number; last_updated: string; }' is not assignable to parameter of type 'never'.
+  Overload 2 of 2, '(values: never[], options?: { onConflict?: string | undefined; ignoreDuplicates?: boolean | undefined; count?: "exact" | "planned" | "estimated" | undefined; defaultToNull?: boolean | undefined; } | undefined): PostgrestFilterBuilder<...>', gave the following error.
+    Object literal may only specify known properties, and 'user_id' does not exist in type 'never[]'.
+lib/engines/achievementEngine.ts(329,31): error TS2339: Property 'unlock_condition' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(336,41): error TS2339: Property 'code' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(339,48): error TS2339: Property 'current_value' does not exist on type 'never'.
+lib/engines/achievementEngine.ts(341,53): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: never, options?: { onConflict?: string | undefined; ignoreDuplicates?: boolean | undefined; count?: "exact" | "planned" | "estimated" | undefined; } | undefined): PostgrestFilterBuilder<{ ...; }, ... 5 more ..., "POST">', gave the following error.
+    Argument of type '{ user_id: string; achievement_code: any; current_value: any; target_value: number; last_updated: string; }' is not assignable to parameter of type 'never'.
+  Overload 2 of 2, '(values: never[], options?: { onConflict?: string | undefined; ignoreDuplicates?: boolean | undefined; count?: "exact" | "planned" | "estimated" | undefined; defaultToNull?: boolean | undefined; } | undefined): PostgrestFilterBuilder<...>', gave the following error.
+    Object literal may only specify known properties, and 'user_id' does not exist in type 'never[]'.
+lib/engines/achievementEngine.ts(343,35): error TS2339: Property 'code' does not exist on type 'never'.
