@@ -37,6 +37,7 @@ import type {
   VisionPillar
 } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
+import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
 
 const NOTE_TYPE_OPTIONS: Array<{ value: VisionNoteType; label: string }> = [
   { value: "idea", label: "Idea" },
@@ -635,6 +636,16 @@ export default function NotesPage() {
           </Tabs>
         </AppCard>
       </div>
+
+      <FloatingActionButton
+        label="New Note"
+        onClick={() => {
+          setEditingId(null);
+          setDraft(EMPTY_DRAFT);
+          document.getElementById("notes-capture-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          window.requestAnimationFrame(() => titleInputRef.current?.focus());
+        }}
+      />
     </PageFrame >
   );
 }

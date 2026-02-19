@@ -27,7 +27,7 @@ export function SectionHeader({
       role="region"
       aria-label={`${title} section controls`}
     >
-      <div className="col-span-full md:col-span-4 lg:col-span-8 space-y-1">
+      <div className="hidden lg:block col-span-full md:col-span-4 lg:col-span-8 space-y-1">
         <h1 className="text-[22px] leading-tight font-heading font-medium tracking-tight flex items-center gap-2">
           {icon ? <span className="text-primary">{icon}</span> : null}
           {title}

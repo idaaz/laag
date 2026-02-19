@@ -16,6 +16,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { TimeBlockRow } from "@/lib/supabase/types";
 
 import { useRealtime } from "@/hooks/useRealtime";
+import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
+import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
 
 function SmallMetric({
   label,
@@ -171,6 +173,14 @@ export default function DailyLogsPage() {
 
     return { focusScore, deepWorkHours, avgEnergy };
   }, [blocksQuery.data]);
+
+  const mobileKPIs = useMemo(() => [
+    { label: "Focus", value: `${stats.focusScore}%`, color: "score" as const },
+    { label: "Deep Work", value: `${stats.deepWorkHours}h`, color: "focus" as const },
+    { label: "Energy", value: `${stats.avgEnergy}`, color: "achievement" as const }
+  ], [stats]);
+
+  useRegisterKPIs(mobileKPIs);
   const loadingBlocks = blocksQuery.isLoading && !blocksQuery.data;
 
   return (
@@ -183,7 +193,7 @@ export default function DailyLogsPage() {
       }
     >
       {loadingBlocks ? (
-        <>
+        <div className="hidden lg:contents">
           <div className="col-span-full md:col-span-2 lg:col-span-4">
             <Skeleton className="h-[86px] w-full rounded-xl" />
           </div>
@@ -193,9 +203,9 @@ export default function DailyLogsPage() {
           <div className="col-span-full md:col-span-2 lg:col-span-4">
             <Skeleton className="h-[86px] w-full rounded-xl" />
           </div>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="hidden lg:contents">
           <div className="col-span-full md:col-span-2 lg:col-span-4">
             <SmallMetric label="Focus" value={`${stats.focusScore}%`} icon={Target} tone="score" />
           </div>
@@ -205,7 +215,7 @@ export default function DailyLogsPage() {
           <div className="col-span-full md:col-span-2 lg:col-span-4">
             <SmallMetric label="Energy" value={`${stats.avgEnergy}`} icon={Flame} tone="achievement" />
           </div>
-        </>
+        </div>
       )}
 
       <div className="col-span-full lg:col-span-8">
@@ -274,7 +284,12 @@ export default function DailyLogsPage() {
             />
           )}
         </div>
-      </div>
+        <FloatingActionButton
+          label="New Log"
+          onClick={() => {
+            document.querySelector(".overflow-y-auto")?.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
     </PageFrame>
   );
 }

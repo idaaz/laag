@@ -19,24 +19,33 @@ export function FloatingActionButton({
   className,
   disabled
 }: FloatingActionButtonProps) {
+  const triggerHaptic = () => {
+    if (typeof window !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(10);
+    }
+  };
+
+  const handlePress = () => {
+    triggerHaptic();
+    onClick();
+  };
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handlePress}
       disabled={disabled}
       aria-label={label}
       title={label}
       className={cn(
-        "fixed bottom-20 right-4 z-40 rounded-full px-4 py-3",
-        "inline-flex items-center gap-2 border border-primary/40 bg-primary text-primary-foreground shadow-lg",
-        "transition-transform duration-[160ms] ease-[var(--ease-soft)] motion-reduce:transition-none",
-        "hover:-translate-y-[1px] focus-visible:ring-0 disabled:opacity-50 disabled:cursor-not-allowed",
+        "fixed bottom-24 right-6 z-40 h-14 w-14 rounded-full",
+        "flex items-center justify-center border border-primary/40 bg-primary shadow-[0_8px_32px_rgba(var(--primary-rgb),0.4)]",
+        "transition-all duration-200 active:scale-90",
         "md:hidden",
         className
       )}
     >
-      {icon ?? <Plus className="h-4 w-4" />}
-      <span className="text-sm font-medium">{label}</span>
+      {icon ?? <Plus className="h-6 w-6 text-primary-foreground" />}
     </button>
   );
 }

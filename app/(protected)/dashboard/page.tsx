@@ -38,6 +38,9 @@ import { persistReminder } from "@/lib/notifications/scheduler";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtime } from "@/hooks/useRealtime";
 import type { DailyLogRow, HabitRow, TaskRow, TimeBlockRow, VisionNoteRow } from "@/lib/supabase/types";
+import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
+import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
+import { Plus } from "lucide-react";
 
 type TopTask = {
   id: string;
@@ -543,6 +546,17 @@ export default function DashboardPage() {
           ? "Short Break"
           : "Long Break";
 
+  const kpis = useMemo(() => [
+    { label: "XP", value: summary.data?.totalXP ?? 0, color: "info" as const },
+    { label: "Score", value: `${discipline.score}%`, color: discipline.score < 45 ? "danger" as const : "score" as const },
+    { label: "Streak", value: dashboardQuery.data?.streak.currentStreak ?? 0, color: "achievement" as const },
+    { label: "Done", value: `${taskCompletion}%`, color: "success" as const },
+    { label: "Deep Work", value: `${(dashboardQuery.data?.deepWorkHours ?? 0).toFixed(1)}h`, color: "focus" as const },
+    { label: "Overdue", value: dashboardQuery.data?.overdueTasks ?? 0, color: (dashboardQuery.data?.overdueTasks ?? 0) > 0 ? "danger" as const : "default" as const }
+  ], [summary.data, discipline.score, dashboardQuery.data, taskCompletion]);
+
+  useRegisterKPIs(kpis);
+
   return (
     <>
       <PageFrame
@@ -609,7 +623,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="col-span-full">
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
+          <div className="hidden lg:grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
             <MetricCard label="XP" value={summary.data?.totalXP ?? 0} icon={BarChart3} tone="info" />
             <MetricCard
               label="Score"
@@ -929,6 +943,11 @@ export default function DashboardPage() {
         </div>
       </PageFrame>
       <LiveRegion message={announcement} />
+
+      <FloatingActionButton
+        label="New Task"
+        onClick={() => router.push("/tasks?action=new")}
+      />
     </>
   );
 }

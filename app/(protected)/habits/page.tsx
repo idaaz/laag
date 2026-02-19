@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPIPanel } from "@/components/ui/KPIPanel";
+import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useHabits } from "@/hooks/useHabits";
 import { useXP } from "@/hooks/useXP";
@@ -183,6 +184,12 @@ export default function HabitsPage() {
     ];
   }, [habitList]);
 
+  const mobileKPIs = useMemo(() =>
+    kpis.map(k => ({ ...k, color: k.color as any }))
+    , [kpis]);
+
+  useRegisterKPIs(mobileKPIs);
+
   return (
     <>
       <HabitFormDialog
@@ -231,8 +238,8 @@ export default function HabitsPage() {
         }
       >
         <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* KPI Panel - Shows on top on mobile, right side on desktop */}
-          <div className="md:order-2">
+          {/* KPI Panel - HIDDEN ON MOBILE, use overlay */}
+          <div className="hidden md:block md:order-2">
             <KPIPanel title="Habits Overview" items={kpis} />
           </div>
 

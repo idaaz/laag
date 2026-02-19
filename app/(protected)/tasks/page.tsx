@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
 
 import { useRealtime } from "@/hooks/useRealtime";
+import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
 
 const PAGE_SIZE = 10;
 
@@ -86,6 +87,12 @@ export default function TasksPage() {
     ];
   }, [tasksQuery.data]);
 
+  const mobileKPIs = useMemo(() =>
+    kpis.map(k => ({ ...k, color: k.color as any }))
+    , [kpis]);
+
+  useRegisterKPIs(mobileKPIs);
+
   return (
     <>
       <TaskFormDialog
@@ -112,8 +119,8 @@ export default function TasksPage() {
         }
       >
         <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* KPI Panel - Shows on top on mobile, right side on desktop */}
-          <div className="md:order-2 sticky top-0 z-10 self-start">
+          {/* KPI Panel - HIDDEN ON MOBILE, use overlay */}
+          <div className="hidden md:block md:order-2 sticky top-0 z-10 self-start">
             <KPIPanel title="Tasks Overview" items={kpis} />
           </div>
 

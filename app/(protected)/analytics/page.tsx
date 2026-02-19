@@ -11,6 +11,8 @@ import { InsightCard } from "@/components/analytics/InsightCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
+import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
+import { useRouter } from "next/navigation";
 
 const XPLineChart = dynamic(() => import("@/components/charts/XPLineChart").then((m) => m.XPLineChart));
 const RadarLifeBalance = dynamic(() =>
@@ -86,8 +88,20 @@ export default function AnalyticsPage() {
         />
       }
     >
-      {/* Mobile Snapshot */}
-      <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:hidden">
+      <div className="hidden">
+        {(() => {
+          const kpis = [
+            { label: "Burnout", value: model?.burnoutIndex.toFixed(1) ?? "0.0", color: "warning" as const },
+            { label: "Overconfidence", value: model?.overconfidenceIndex.toFixed(1) ?? "0.0", color: "calibration" as const },
+            { label: "Productivity", value: model?.productivityScore.toFixed(0) ?? "0", color: "focus" as const }
+          ];
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          useRegisterKPIs(kpis);
+          return null;
+        })()}
+      </div>
+      {/* Mobile Snapshot (Hidden, use Overlay instead) */}
+      <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-3 hidden lg:block md:hidden">
         <h2 className="text-sm font-semibold mb-2">Snapshot</h2>
         <div className="grid grid-cols-2 gap-2">
           <article className="rounded-lg border border-border/70 bg-background/60 p-2">
@@ -236,6 +250,11 @@ export default function AnalyticsPage() {
           )}
         </article>
       </section>
+
+      <FloatingActionButton
+        label="New Insight"
+        onClick={() => router.push("/notes?action=new&type=insight")}
+      />
     </PageFrame>
   );
 }
