@@ -2,20 +2,22 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, useAnimation, PanInfo } from "framer-motion";
+import { Activity, X, Search } from "lucide-react";
 import { useMobileKPI } from "@/lib/context/MobileKPIContext";
+import { usePathname } from "next/navigation";
+import { pushToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 const PANEL_WIDTH = 240; // Desktop-ish width or percentage
-const TRIGGER_WIDTH = 12;
 
 export function MobileKPIOverlay() {
     const { kpis } = useMobileKPI();
     const [isOpen, setIsOpen] = useState(false);
     const controls = useAnimation();
     const panelRef = useRef<HTMLDivElement>(null);
+    const pathname = usePathname();
 
-    // Height adapts to KPI count (min height to look okay)
-    const barHeight = Math.max(kpis.length * 30, 60);
+    const isRightAlignedKPI = ["/dashboard", "/achievements", "/analytics"].includes(pathname);
 
     useEffect(() => {
         if (kpis.length === 0 && isOpen) {
@@ -26,12 +28,9 @@ export function MobileKPIOverlay() {
 
     if (kpis.length === 0) return null;
 
-    const handleDragEnd = (event: any, info: PanInfo) => {
-        // If swiped left beyond threshold or velocity is high enough
-        if (info.offset.x < -50 || info.velocity.x < -500) {
-            setIsOpen(true);
-            controls.start({ x: 0 });
-        } else if (info.offset.x > 50 || info.velocity.x > 500) {
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        // Only handle closing swipe (right)
+        if (info.offset.x > 50 || info.velocity.x > 500) {
             setIsOpen(false);
             controls.start({ x: PANEL_WIDTH });
         } else {
@@ -58,29 +57,48 @@ export function MobileKPIOverlay() {
                 />
             )}
 
-            {/* Trigger Bar Indicator (always slightly visible) */}
-            {!isOpen && (
-                <motion.div
-                    className="fixed right-0 top-1/2 z-[91] -translate-y-1/2 lg:hidden cursor-grab active:cursor-grabbing"
-                    style={{ height: barHeight }}
-                    drag="x"
-                    dragConstraints={{ left: -PANEL_WIDTH, right: 0 }}
-                    dragElastic={0.1}
-                    onDragEnd={handleDragEnd}
+            {/* Search Button (Bottom Right) - Only when KPI is centered */}
+            {!isRightAlignedKPI && (
+                <motion.button
+                    onClick={() => pushToast("Search", "Coming soon!")}
+                    className="fixed bottom-24 right-6 z-[90] flex h-14 w-14 items-center justify-center rounded-full border border-border/80 bg-card/85 text-foreground shadow-xl backdrop-blur-md transition-colors duration-300 lg:hidden"
+                    whileTap={{ scale: 0.9 }}
                 >
-                    <div className="h-full w-[12px] rounded-l-full bg-primary/30 border-l border-y border-primary/20 shadow-[-2px_0_10px_rgba(var(--primary),0.2)] flex items-center justify-center overflow-hidden">
-                        <div className="w-1 h-1/2 rounded-full bg-white/40" />
-                    </div>
-                </motion.div>
+                    <Search className="h-6 w-6" />
+                </motion.button>
             )}
 
-            {/* Actual Panel */}
+            {/* KPI Floating Button (Position based on route) */}
+            <motion.button
+                onClick={() => {
+                    if (isOpen) close();
+                    else {
+                        setIsOpen(true);
+                        controls.start({ x: 0 });
+                    }
+                }}
+                className={cn(
+                    "fixed bottom-24 z-[90] flex h-14 w-14 items-center justify-center rounded-full border border-border/80 shadow-xl backdrop-blur-md transition-colors duration-300 lg:hidden",
+                    // Move based on alignment preference
+                    isRightAlignedKPI ? "right-6" : "left-1/2 -translate-x-1/2",
+                    isOpen ? "bg-primary text-white" : "bg-card/85 text-foreground"
+                )}
+                whileTap={{ scale: 0.9 }}
+            >
+                {isOpen ? <X className="h-6 w-6 text-white" /> : <Activity className="h-6 w-6" />}
+            </motion.button>
+
+            {/* Actual Panel (SWIPE RIGHT TO CLOSE) */}
             <motion.div
                 ref={panelRef}
                 className="fixed top-0 right-0 bottom-0 z-[100] w-[240px] bg-card/95 backdrop-blur-xl border-l border-border/50 shadow-2xl p-6 lg:hidden"
                 initial={{ x: PANEL_WIDTH }}
                 animate={controls}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                drag="x"
+                dragConstraints={{ left: 0, right: PANEL_WIDTH }}
+                dragElastic={0.1}
+                onDragEnd={handleDragEnd}
             >
                 <div className="h-full flex flex-col justify-center space-y-8">
                     {kpis.map((item, idx) => (
