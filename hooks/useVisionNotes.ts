@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { pushToast } from "@/components/ui/toast";
 import type {
   VisionHorizon,
   VisionNoteRow,
@@ -101,20 +102,29 @@ export function useVisionNotes(userId?: string, filters: VisionNoteFilters = { v
   const createMutation = useMutation({
     mutationFn: async (draft: VisionNoteDraft) => {
       if (!userId) throw new Error("Missing user");
-      const { data, error } = await supabase
-        .from("vision_notes")
+      const { data, error } = await (supabase.from("vision_notes") as any)
         .insert({
           user_id: userId,
           title: draft.title,
           body: draft.body,
           note_type: draft.note_type,
           vision_pillar: draft.vision_pillar,
+          horizon: "today",
+          impact_score: 1,
+          effort_score: 1,
+          tags: [],
           pinned: draft.pinned,
-          archived: false
-        } as never)
+          archived: false,
+          archived_at: null,
+          review_date: null
+        })
         .select("*")
         .single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Supabase Insert Error:", error);
+        pushToast("Error", "Failed to save note: " + error.message);
+        throw new Error(error.message);
+      }
       return data as VisionNoteRow;
     },
     onSuccess: (data) => {
@@ -141,13 +151,16 @@ export function useVisionNotes(userId?: string, filters: VisionNoteFilters = { v
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, changes }: { id: string; changes: VisionNoteUpdate }) => {
-      const { data, error } = await supabase
-        .from("vision_notes")
-        .update(changes as never)
+      const { data, error } = await (supabase.from("vision_notes") as any)
+        .update(changes)
         .eq("id", id)
         .select("*")
         .single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Supabase Update Error:", error);
+        pushToast("Error", "Failed to update note: " + error.message);
+        throw new Error(error.message);
+      }
       return data as VisionNoteRow;
     },
     onSuccess: () => {

@@ -39,7 +39,6 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtime } from "@/hooks/useRealtime";
 import type { DailyLogRow, HabitRow, TaskRow, TimeBlockRow, VisionNoteRow } from "@/lib/supabase/types";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
-import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
 
 type TopTask = {
     id: string;
@@ -159,18 +158,47 @@ function MetricCard({
         decimals > 0 ? Number(display.toFixed(decimals)).toFixed(decimals) : String(Math.round(display));
 
     return (
-        <AppCard className="h-full" padded={false}>
-            <div className="p-3 space-y-2" role="status" aria-label={`${shownValue}${suffix ?? ""} ${label}`}>
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-card/40 p-5 shadow-lg backdrop-blur-xl transition-all duration-500 hover:scale-[1.02] hover:bg-card/60 hover:shadow-2xl hover:border-white/20 group h-full">
+            <div className={`absolute -right-4 -top-4 opacity-[0.03] transition-transform duration-700 group-hover:scale-110 group-hover:opacity-10 ${toneClass}`}>
+                <Icon className="h-28 w-28" />
+            </div>
+            <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
                 <div className="flex items-center justify-between">
-                    <p className="text-[11px] text-muted-foreground md:text-xs">{label}</p>
-                    <Icon className={toneClass} />
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+                    <Icon className={`h-4 w-4 ${toneClass}`} />
                 </div>
-                <p className={`text-2xl font-semibold tabular-nums leading-none md:text-3xl ${toneClass}`}>
+                <p className={`text-4xl font-bold tabular-nums tracking-tighter ${toneClass}`}>
                     {shownValue}
-                    {suffix ?? ""}
+                    {suffix && <span className="text-xl opacity-70 ml-0.5">{suffix}</span>}
                 </p>
             </div>
-        </AppCard>
+        </div>
+    );
+}
+
+interface DashboardCardProps {
+    title: string;
+    actions?: React.ReactNode;
+    children: React.ReactNode;
+    hint?: string;
+    className?: string;
+}
+
+function DashboardCard({ title, actions, children, hint, className = "" }: DashboardCardProps) {
+    return (
+        <div className={`group relative flex flex-col rounded-2xl border border-white/10 bg-card/40 shadow-lg backdrop-blur-xl transition-all duration-500 hover:border-white/20 hover:shadow-2xl overflow-hidden ${className}`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+            <div className="relative z-10 flex items-center justify-between border-b border-white/5 px-5 py-4">
+                <div>
+                    <h3 className="font-semibold text-foreground tracking-tight">{title}</h3>
+                    {hint && <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">{hint}</p>}
+                </div>
+                {actions && <div>{actions}</div>}
+            </div>
+            <div className="relative z-10 flex-1 p-5">
+                {children}
+            </div>
+        </div>
     );
 }
 
@@ -603,22 +631,22 @@ export default function DashboardPage() {
                 }
             >
                 <div className="col-span-full md:hidden">
-                    <AppCard title="Quick Start" hint="One tap to create.">
-                        <div className="flex items-center justify-between gap-2">
-                            <Button size="icon" variant="outline" className="h-10 w-full" onClick={() => router.push("/tasks")} title="New Task">
-                                <Plus className="h-5 w-5" />
+                    <DashboardCard title="Launchpad" hint="Quick Actions">
+                        <div className="grid grid-cols-4 gap-3">
+                            <Button size="icon" variant="ghost" className="h-14 w-full rounded-2xl border border-white/10 bg-primary/10 hover:bg-primary/20 hover:shadow-lg transition-all hover:scale-105" onClick={() => router.push("/tasks")} title="New Task">
+                                <Plus className="h-6 w-6 text-primary" />
                             </Button>
-                            <Button size="icon" variant="outline" className="h-10 w-full" onClick={() => router.push("/habits")} title="New Habit">
-                                <Zap className="h-5 w-5" />
+                            <Button size="icon" variant="ghost" className="h-14 w-full rounded-2xl border border-white/10 bg-[var(--k-gold)]/10 hover:bg-[var(--k-gold)]/20 hover:shadow-lg transition-all hover:scale-105" onClick={() => router.push("/habits")} title="New Habit">
+                                <Zap className="h-6 w-6 text-[var(--k-gold)]" />
                             </Button>
-                            <Button size="icon" variant="outline" className="h-10 w-full" onClick={() => router.push("/daily-logs")} title="New Log">
-                                <Activity className="h-5 w-5" />
+                            <Button size="icon" variant="ghost" className="h-14 w-full rounded-2xl border border-white/10 bg-[var(--k-blue)]/10 hover:bg-[var(--k-blue)]/20 hover:shadow-lg transition-all hover:scale-105" onClick={() => router.push("/daily-logs")} title="New Log">
+                                <Activity className="h-6 w-6 text-[var(--k-blue)]" />
                             </Button>
-                            <Button size="icon" variant="outline" className="h-10 w-full" onClick={() => router.push("/notes?action=new" as never)} title="New Note">
-                                <NotebookPen className="h-5 w-5" />
+                            <Button size="icon" variant="ghost" className="h-14 w-full rounded-2xl border border-white/10 bg-[var(--k-purple)]/10 hover:bg-[var(--k-purple)]/20 hover:shadow-lg transition-all hover:scale-105" onClick={() => router.push("/notes?action=new" as never)} title="New Note">
+                                <NotebookPen className="h-6 w-6 text-[var(--k-purple)]" />
                             </Button>
                         </div>
-                    </AppCard>
+                    </DashboardCard>
                 </div>
 
                 <div className="col-span-full">
@@ -656,7 +684,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="col-span-full md:hidden sticky top-2 z-20" id="timer-anchor">
-                    <AppCard title="Pomodoro" hint={`${timerSessionLabel} ready.`} className="bg-card/95 backdrop-blur">
+                    <DashboardCard title="Pomodoro" hint={`${timerSessionLabel} ready.`} className="bg-card/95 backdrop-blur">
                         <div className="flex items-center justify-between gap-2">
                             <p className="text-3xl font-semibold tabular-nums">{timerClock}</p>
                             <div className="flex items-center gap-2">
@@ -698,12 +726,12 @@ export default function DashboardPage() {
                                 </Button>
                             </div>
                         </div>
-                    </AppCard>
+                    </DashboardCard>
                 </div>
 
                 <div className="col-span-full lg:col-span-8">
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <AppCard
+                        <DashboardCard
                             title="Top Tasks"
                             hint="Top priorities. Mobile shows 3."
                             className="h-full"
@@ -740,9 +768,9 @@ export default function DashboardPage() {
                             ) : (
                                 <p className="text-sm text-muted-foreground">No pending tasks.</p>
                             )}
-                        </AppCard>
+                        </DashboardCard>
 
-                        <AppCard
+                        <DashboardCard
                             title="Habits Due Today"
                             hint="Due habits. Mobile shows 3."
                             className="h-full"
@@ -774,9 +802,9 @@ export default function DashboardPage() {
                             ) : (
                                 <p className="text-sm text-muted-foreground">All active habits logged for today.</p>
                             )}
-                        </AppCard>
+                        </DashboardCard>
 
-                        <AppCard
+                        <DashboardCard
                             title="Daily Log"
                             hint="Today&apos;s completion."
                             className="h-full"
@@ -819,9 +847,9 @@ export default function DashboardPage() {
                                     </p>
                                 )}
                             </div>
-                        </AppCard>
+                        </DashboardCard>
 
-                        <AppCard
+                        <DashboardCard
                             title="Vision Notes"
                             hint={`${dashboardQuery.data?.visionNotes.activeCount ?? 0} active notes.`}
                             className="h-full"
@@ -869,9 +897,9 @@ export default function DashboardPage() {
                                     </p>
                                 ) : null}
                             </div>
-                        </AppCard>
+                        </DashboardCard>
 
-                        <AppCard
+                        <DashboardCard
                             title="Truth Mode Flags"
                             hint="Latest flags. Mobile shows 3."
                             className="h-full"
@@ -896,7 +924,7 @@ export default function DashboardPage() {
                             ) : (
                                 <p className="text-sm text-muted-foreground">No flagged events.</p>
                             )}
-                        </AppCard>
+                        </DashboardCard>
                     </div>
                 </div>
 
@@ -942,11 +970,6 @@ export default function DashboardPage() {
                 </div>
             </PageFrame>
             <LiveRegion message={announcement} />
-
-            <FloatingActionButton
-                label="New Task"
-                onClick={() => router.push("/tasks?action=new" as never)}
-            />
         </>
     );
 }

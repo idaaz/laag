@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Edit, Flame, Plus, Search, Trash2 } from "lucide-react";
 import { CompactListItem } from "@/components/structure/CompactListItem";
-import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
+
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
 import { HabitCompletionDialog } from "@/components/habits/HabitCompletionDialog";
@@ -56,13 +56,22 @@ export default function HabitsPage() {
     const [habitQuestions, setHabitQuestions] = useState<HabitQuestionRow[]>([]);
     const [error, setError] = useState<string | null>(null);
 
+    // Sync search with URL for in-tab search
+    useEffect(() => {
+        const q = searchParams.get("q") || "";
+        setSearch(q);
+    }, [searchParams]);
+
     // Handle ?action=new
     useEffect(() => {
         if (searchParams.get("action") === "new") {
             setEditingHabit(null);
             setFormOpen(true);
-            // Clean up URL without reload
-            router.replace("/habits", { scroll: false });
+            // Clean up action without removing q
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("action");
+            const qs = params.toString();
+            router.replace(qs ? `/habits?${qs}` : "/habits", { scroll: false });
         }
     }, [searchParams, router]);
 
@@ -228,7 +237,7 @@ export default function HabitsPage() {
                                     setEditingHabit(null);
                                     setFormOpen(true);
                                 }}
-                                className="gap-2"
+                                className="hidden md:flex gap-2"
                             >
                                 <Plus className="h-4 w-4" />
                                 New
@@ -245,7 +254,7 @@ export default function HabitsPage() {
 
                     {/* Main List */}
                     <div className="md:col-span-2 md:order-1 rounded-xl border border-border/80 bg-card/85 p-4 min-h-[360px] flex flex-col gap-4">
-                        <div className="relative">
+                        <div className="relative hidden md:block">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 value={search}
@@ -354,15 +363,6 @@ export default function HabitsPage() {
                 </div>
             </PageFrame>
 
-            <FloatingActionButton
-                label="New"
-                icon={<Plus className="h-4 w-4" />}
-                onClick={() => {
-                    setEditingHabit(null);
-                    setFormOpen(true);
-                }}
-                disabled={loading || !userId}
-            />
         </>
     );
 }

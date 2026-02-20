@@ -17,7 +17,7 @@ import type { TimeBlockRow } from "@/lib/supabase/types";
 
 import { useRealtime } from "@/hooks/useRealtime";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
-import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
+
 
 function SmallMetric({
     label,
@@ -72,13 +72,23 @@ export default function DailyLogsPage() {
     const router = useRouter();
 
     const today = new Date().toISOString().slice(0, 10);
+    const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
     const [activeStartTime, setActiveStartTime] = useState<string | null>(null);
+
+    // Sync search with URL for in-tab search
+    useEffect(() => {
+        const q = searchParams.get("q") || "";
+        setSearchQuery(q);
+    }, [searchParams]);
 
     // Handle ?action=new
     useEffect(() => {
         if (searchParams.get("action") === "new") {
             // Just clean up, the logger is already central on this page
-            router.replace("/daily-logs", { scroll: false });
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("action");
+            const qs = params.toString();
+            router.replace(qs ? `/daily-logs?${qs}` : "/daily-logs", { scroll: false });
         }
     }, [searchParams, router]);
 
@@ -158,6 +168,16 @@ export default function DailyLogsPage() {
             pushToast("Error", error instanceof Error ? error.message : "Failed to save block");
         }
     });
+
+    const blocks = blocksQuery.data || [];
+    const filteredBlocks = useMemo(() => {
+        if (!searchQuery) return blocks;
+        return blocks.filter(b =>
+            (b.activity || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (b.output_notes || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (b.category || "").toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [blocks, searchQuery]);
 
     const stats = useMemo(() => {
         const blocks = blocksQuery.data ?? [];
@@ -242,9 +262,9 @@ export default function DailyLogsPage() {
                             <Skeleton key={item} className="h-[52px] w-full rounded-xl" />
                         ))}
                     </div>
-                ) : (blocksQuery.data ?? []).length ? (
+                ) : filteredBlocks.length ? (
                     <div className="space-y-2">
-                        {(blocksQuery.data ?? []).slice(0, 5).map((block) => (
+                        {filteredBlocks.slice(0, 5).map((block) => (
                             <article key={block.id} className="rounded-lg border border-border/70 bg-background/55 p-2">
                                 <p className="text-sm font-medium">{block.activity}</p>
                                 <p className="text-xs text-muted-foreground">
@@ -276,7 +296,7 @@ export default function DailyLogsPage() {
                         </div>
                     ) : (
                         <LogTimeline
-                            blocks={blocksQuery.data ?? []}
+                            blocks={filteredBlocks}
                             onFillGhost={(startTime) => {
                                 setActiveStartTime(startTime);
                                 document.querySelector(".overflow-y-auto")?.scrollTo({ top: 0, behavior: "smooth" });
@@ -284,12 +304,6 @@ export default function DailyLogsPage() {
                         />
                     )}
                 </div>
-                <FloatingActionButton
-                    label="New Log"
-                    onClick={() => {
-                        document.querySelector(".overflow-y-auto")?.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                />
             </div>
         </PageFrame>
     );

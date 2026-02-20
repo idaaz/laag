@@ -16,7 +16,7 @@ export function TaskFilters({
 }) {
   return (
     <div className="grid gap-2 md:grid-cols-[1fr,200px]">
-      <div className="relative">
+      <div className="relative hidden md:block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={query}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { format } from "date-fns";
 import { BarChart3, ExternalLink, Globe, Search, Target, TrendingUp } from "lucide-react";
 import { PageFrame } from "@/components/structure/PageFrame";
@@ -12,15 +12,26 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { InsightCard } from "@/components/analytics/InsightCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useTracking } from "@/hooks/useTracking";
+import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
 
 const PAGE_SIZE = 10;
+
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export default function TrackingPage() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const { visitedUrlsQuery, analyticsQuery } = useTracking(userId, page, PAGE_SIZE);
   const [search, setSearch] = useState("");
+
+  // Sync search with URL for in-tab search
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    setSearch(q);
+  }, [searchParams]);
 
   const urls = useMemo(() => visitedUrlsQuery.data?.data ?? [], [visitedUrlsQuery.data]);
   const totalCount = visitedUrlsQuery.data?.count ?? 0;
@@ -38,6 +49,18 @@ export default function TrackingPage() {
 
   // Analytics insights from RPC
   const analytics = analyticsQuery.data;
+
+  const mobileKPIs = useMemo(() => {
+    if (!analytics) return [];
+    return [
+      { label: "Focus", value: `${analytics.focusScore}%`, color: "score" as const },
+      { label: "Visits", value: analytics.totalVisits, color: "info" as const },
+      { label: "Unique", value: analytics.uniqueDomains, color: "focus" as const },
+      { label: "Top Cat", value: analytics.categories[0]?.category || "N/A", color: "achievement" as const }
+    ];
+  }, [analytics]);
+
+  useRegisterKPIs(mobileKPIs);
 
   const showLoading = authLoading || visitedUrlsQuery.isLoading;
 

@@ -12,19 +12,22 @@ export type KPIItem = {
 type MobileKPIContextType = {
     kpis: KPIItem[];
     setKPIs: (items: KPIItem[]) => void;
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
 };
 
 const MobileKPIContext = createContext<MobileKPIContextType | undefined>(undefined);
 
 export function MobileKPIProvider({ children }: { children: React.ReactNode }) {
     const [kpis, setKPIsState] = useState<KPIItem[]>([]);
+    const [isOpen, setIsOpen] = useState(false);
 
     const setKPIs = useCallback((items: KPIItem[]) => {
         setKPIsState(items);
     }, []);
 
     return (
-        <MobileKPIContext.Provider value={{ kpis, setKPIs }}>
+        <MobileKPIContext.Provider value={{ kpis, setKPIs, isOpen, setIsOpen }}>
             {children}
         </MobileKPIContext.Provider>
     );

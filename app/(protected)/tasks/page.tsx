@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { format, isPast } from "date-fns";
 import { Plus } from "lucide-react";
-import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
+
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
 import { Badge } from "@/components/ui/badge";
@@ -42,12 +42,21 @@ export default function TasksPage() {
     // Fetch paginated tasks
     const { tasksQuery, createTask, deleteTask, completeTask } = useTasks(userId, page, PAGE_SIZE);
 
+    // Sync query with URL for in-tab search
+    useEffect(() => {
+        const q = searchParams.get("q") || "";
+        setQuery(q);
+    }, [searchParams]);
+
     // Handle ?action=new
     useEffect(() => {
         if (searchParams.get("action") === "new") {
             setOpenDialog(true);
-            // Clean up URL without reload
-            router.replace("/tasks", { scroll: false });
+            // Clean up action without removing q
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("action");
+            const qs = params.toString();
+            router.replace(qs ? `/tasks?${qs}` : "/tasks", { scroll: false });
         }
     }, [searchParams, router]);
 
@@ -110,7 +119,7 @@ export default function TasksPage() {
                         title="Tasks"
                         description="Plan. Execute."
                         actions={
-                            <Button onClick={() => setOpenDialog(true)} className="gap-2">
+                            <Button onClick={() => setOpenDialog(true)} className="hidden md:flex gap-2">
                                 <Plus className="h-4 w-4" />
                                 New
                             </Button>
@@ -225,12 +234,6 @@ export default function TasksPage() {
                     </div>
                 </div>
             </PageFrame>
-
-            <FloatingActionButton
-                label="New"
-                icon={<Plus className="h-4 w-4" />}
-                onClick={() => setOpenDialog(true)}
-            />
         </>
     );
 }
