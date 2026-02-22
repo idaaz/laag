@@ -74,6 +74,7 @@ export default function DailyLogsPage() {
     const today = new Date().toISOString().slice(0, 10);
     const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
     const [activeStartTime, setActiveStartTime] = useState<string | null>(null);
+    const [editingBlock, setEditingBlock] = useState<TimeBlockRow | null>(null);
 
     // Sync search with URL for in-tab search
     useEffect(() => {
@@ -123,6 +124,21 @@ export default function DailyLogsPage() {
         }) => {
             if (!userId) throw new Error("Missing user");
 
+            if (editingBlock) {
+                const { error } = await supabase
+                    .from("time_blocks")
+                    .update({
+                        activity: data.activity,
+                        category: data.category,
+                        is_planned: data.is_planned,
+                        energy_level: data.energy_level,
+                        output_notes: data.output_notes || null
+                    } as never)
+                    .eq("id", editingBlock.id);
+                if (error) throw new Error(error.message);
+                return;
+            }
+
             const now = new Date();
             let start: Date;
 
@@ -155,7 +171,8 @@ export default function DailyLogsPage() {
         onSuccess: async () => {
             queryClient.invalidateQueries({ queryKey: ["time-blocks"] });
             setActiveStartTime(null);
-            pushToast("Success", "Time block saved.");
+            setEditingBlock(null);
+            pushToast("Success", editingBlock ? "Time block updated." : "Time block saved.");
 
             // Trigger achievement check
             if (userId) {
@@ -168,6 +185,17 @@ export default function DailyLogsPage() {
             pushToast("Error", error instanceof Error ? error.message : "Failed to save block");
         }
     });
+
+    const handleEditBlock = (block: TimeBlockRow) => {
+        setEditingBlock(block);
+        setActiveStartTime(null);
+        // Scroll to top to see the logger
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingBlock(null);
+    };
 
     const filteredBlocks = useMemo(() => {
         const blocks = blocksQuery.data || [];
@@ -251,6 +279,8 @@ export default function DailyLogsPage() {
                     <TimeBlockLogger
                         onSave={(data) => saveBlock.mutateAsync(data)}
                         isLoading={saveBlock.isPending}
+                        initialData={editingBlock}
+                        onCancel={editingBlock ? handleCancelEdit : undefined}
                     />
                 ) : null}
             </div>
@@ -298,9 +328,11 @@ export default function DailyLogsPage() {
                         <LogTimeline
                             blocks={filteredBlocks}
                             onFillGhost={(startTime) => {
+                                setEditingBlock(null);
                                 setActiveStartTime(startTime);
-                                document.querySelector(".overflow-y-auto")?.scrollTo({ top: 0, behavior: "smooth" });
+                                window.scrollTo({ top: 0, behavior: "smooth" });
                             }}
+                            onEditBlock={handleEditBlock}
                         />
                     )}
                 </div>

@@ -598,11 +598,12 @@ export default function DashboardPage() {
                                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                                         {note.body || "No details provided."}
                                     </p>
-                                    {(note.attachments as FileAttachment[])?.length > 0 && (
-                                        <div className="mt-2 flex gap-1.5 overflow-hidden">
-                                            {(note.attachments as FileAttachment[]).slice(0, 3).map((at, idx) => (
-                                                <div key={idx} className="h-1.5 w-4 rounded-full bg-primary/40" />
-                                            ))}
+                                    {((note.attachments as FileAttachment[])?.length ?? 0) > 0 && (
+                                        <div className="mt-2 flex items-center gap-1.5 overflow-hidden">
+                                            <div className="h-1.5 w-4 rounded-full bg-primary/40" />
+                                            <span className="text-[10px] text-muted-foreground/60 font-semibold">
+                                                {(note.attachments as FileAttachment[]).length} Attachment{((note.attachments as FileAttachment[])?.length ?? 0) !== 1 ? 's' : ''}
+                                            </span>
                                         </div>
                                     )}
                                 </Link>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Camera, Image as ImageIcon, Mic, X, Trash2, StopCircle } from "lucide-react";
+import { Camera, Image as ImageIcon, Mic, X, Trash2, StopCircle, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadNoteAttachment, type FileAttachment } from "@/lib/supabase/storage";
 import { pushToast } from "@/components/ui/toast";
@@ -58,13 +58,17 @@ export function MediaCaptureZone({ userId, onAttachmentsChange, onUploadingChang
         if (!file) return;
 
         try {
+            const isVideo = file.type.startsWith("video/");
+            const mediaType = isVideo ? "video" : "image";
+            const rawName = window.prompt(`Enter a name for this ${mediaType}:`, file.name) || `${mediaType}_${attachments.length + 1}`;
+
             setIsUploading(true);
-            const attachment = await uploadNoteAttachment(userId, file, file.name, "image");
+            const attachment = await uploadNoteAttachment(userId, file, rawName, mediaType);
             updateAttachments([...attachments, attachment]);
-            pushToast("Image uploaded successfully");
+            pushToast(`${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} uploaded successfully`);
         } catch (err) {
             console.error("DEBUG: handleFileSelect error:", err);
-            pushToast("Failed to upload image", "Check your connection or console for details.");
+            pushToast("Failed to upload media", "Check your connection or console for details.");
         } finally {
             setIsUploading(false);
         }
@@ -107,8 +111,9 @@ export function MediaCaptureZone({ userId, onAttachmentsChange, onUploadingChang
         canvas.toBlob(async (blob) => {
             if (!blob) return;
             try {
+                const rawName = window.prompt("Enter a name for this captured photo:", `photo_${attachments.length + 1}`) || `photo_${attachments.length + 1}`;
                 setIsUploading(true);
-                const attachment = await uploadNoteAttachment(userId, blob, "captured_photo.jpg", "image");
+                const attachment = await uploadNoteAttachment(userId, blob, `${rawName}.jpg`, "image");
                 updateAttachments([...attachments, attachment]);
                 stopCamera(e);
                 pushToast("Photo captured and uploaded");
@@ -138,8 +143,9 @@ export function MediaCaptureZone({ userId, onAttachmentsChange, onUploadingChang
             recorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
                 try {
+                    const rawName = window.prompt("Enter a name for this voice memo:", `audio_${attachments.length + 1}`) || `audio_${attachments.length + 1}`;
                     setIsUploading(true);
-                    const attachment = await uploadNoteAttachment(userId, audioBlob, `recording_${Date.now()}.webm`, "audio");
+                    const attachment = await uploadNoteAttachment(userId, audioBlob, `${rawName}.webm`, "audio");
                     updateAttachments([...attachments, attachment]);
                     pushToast("Voice memo saved");
                 } catch (err) {
@@ -183,6 +189,10 @@ export function MediaCaptureZone({ userId, onAttachmentsChange, onUploadingChang
                     <div key={i} className="group relative w-16 h-16 rounded-xl bg-card/60 border border-white/5 overflow-hidden shadow-lg transition-all hover:scale-105">
                         {at.type === "image" ? (
                             <img src={at.url} alt="upload" className="w-full h-full object-cover" />
+                        ) : at.type === "video" ? (
+                            <div className="w-full h-full flex items-center justify-center bg-indigo-500/10">
+                                <Film className="h-6 w-6 text-indigo-500" />
+                            </div>
                         ) : (
                             <div className="w-full h-full flex items-center justify-center bg-primary/10">
                                 <Mic className="h-6 w-6 text-primary" />
@@ -205,7 +215,7 @@ export function MediaCaptureZone({ userId, onAttachmentsChange, onUploadingChang
                             type="file"
                             ref={fileInputRef}
                             className="hidden"
-                            accept="image/*"
+                            accept="image/*,video/*"
                             onChange={handleFileSelect}
                             disabled={isUploading}
                         />

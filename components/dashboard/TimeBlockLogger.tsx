@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Brain, GraduationCap, Sword, Dumbbell, PlayCircle, PauseCircle, Trash2, Music, ClipboardList, CheckCircle2, XCircle, Zap, Flame, Terminal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,14 +34,44 @@ interface TimeBlockLoggerProps {
         output_notes: string;
     }) => Promise<void>;
     isLoading?: boolean;
+    initialData?: {
+        id: string;
+        activity: string;
+        category: string;
+        is_planned: boolean;
+        energy_level: number;
+        output_notes: string | null;
+        start_time: string;
+        end_time: string;
+    } | null;
+    onCancel?: () => void;
 }
 
-export function TimeBlockLogger({ onSave, isLoading }: TimeBlockLoggerProps) {
+export function TimeBlockLogger({ onSave, isLoading, initialData, onCancel }: TimeBlockLoggerProps) {
     const [activity, setActivity] = useState("");
     const [category, setCategory] = useState<typeof CATEGORIES[number]["id"]>("Deep Work");
     const [isPlanned, setIsPlanned] = useState(true);
     const [energy, setEnergy] = useState(3);
     const [notes, setNotes] = useState("");
+
+    const isEditing = !!initialData;
+
+    // Populate fields when initialData changes
+    useEffect(() => {
+        if (initialData) {
+            setActivity(initialData.activity || "");
+            setCategory((initialData.category as any) || "Deep Work");
+            setIsPlanned(initialData.is_planned);
+            setEnergy(initialData.energy_level || 3);
+            setNotes(initialData.output_notes || "");
+        } else {
+            setActivity("");
+            setCategory("Deep Work");
+            setIsPlanned(true);
+            setEnergy(3);
+            setNotes("");
+        }
+    }, [initialData]);
 
     // Time block calculation (current 30 min window)
     const now = new Date();
@@ -79,9 +109,9 @@ export function TimeBlockLogger({ onSave, isLoading }: TimeBlockLoggerProps) {
                 {/* Header - Current Window */}
                 <div className="flex items-center justify-between pb-2 border-b border-border/50">
                     <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                        <div className={cn("h-2 w-2 rounded-full animate-pulse", isEditing ? "bg-amber-500" : "bg-primary")} />
                         <h2 className="text-sm font-mono font-bold text-primary/80 uppercase tracking-widest">
-                            {startTimeStr} — {endTimeStr} Block
+                            {isEditing ? `Modifying ${new Date(initialData.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Block` : `${startTimeStr} — ${endTimeStr} Block`}
                         </h2>
                     </div>
                     <span className="text-[10px] text-muted-foreground font-mono uppercase">
@@ -201,14 +231,31 @@ export function TimeBlockLogger({ onSave, isLoading }: TimeBlockLoggerProps) {
                     </div>
                 </div>
 
-                {/* Action Button */}
-                <Button
-                    onClick={handleSave}
-                    disabled={!activity.trim() || isLoading}
-                    className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground font-bold text-lg shadow-[0_0_20px_rgba(var(--primary),0.3)] transition-all hover:scale-[1.01] active:scale-[0.99]"
-                >
-                    {isLoading ? "Logging..." : "SAVE LOG (Enter)"}
-                </Button>
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                    {onCancel && (
+                        <Button
+                            variant="outline"
+                            onClick={onCancel}
+                            disabled={isLoading}
+                            className="h-12 px-6 font-mono text-xs uppercase tracking-wider"
+                        >
+                            Cancel
+                        </Button>
+                    )}
+                    <Button
+                        onClick={handleSave}
+                        disabled={!activity.trim() || isLoading}
+                        className={cn(
+                            "flex-1 h-12 text-primary-foreground font-bold text-lg transition-all hover:scale-[1.01] active:scale-[0.99]",
+                            isEditing
+                                ? "bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                                : "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary shadow-[0_0_20px_rgba(var(--primary),0.3)]"
+                        )}
+                    >
+                        {isLoading ? (isEditing ? "Updating..." : "Logging...") : (isEditing ? "UPDATE LOG" : "SAVE LOG (Enter)")}
+                    </Button>
+                </div>
             </CardContent>
         </Card>
     );

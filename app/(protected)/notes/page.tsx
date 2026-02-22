@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Plus, Pin, MoreVertical, Trash2, Edit3, NotebookPen } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { FileAttachment } from "@/lib/supabase/storage";
+import { MediaGalleryModal } from "@/components/notes/MediaGalleryModal";
 
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
@@ -231,6 +232,14 @@ function NoteCard({
     const isHighImpact = note.impact_score >= 8;
     const isSecret = note.note_type === "secret";
 
+    // Media handling
+    const [galleryOpen, setGalleryOpen] = useState(false);
+    const attachments = (note.attachments as FileAttachment[]) || [];
+    const imageCount = attachments.filter(a => a.type === "image").length;
+    const audioCount = attachments.filter(a => a.type === "audio").length;
+    const videoCount = attachments.filter(a => a.type === "video").length;
+    const hasMedia = attachments.length > 0;
+
     const baseClasses = "relative group flex flex-col rounded-2xl border bg-card/40 backdrop-blur-md p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer";
     const borderClasses = isHighImpact
         ? "border-primary/30 hover:border-primary/50 shadow-[0_0_15px_-3px_rgba(var(--primary-rgb),0.1)]"
@@ -288,37 +297,21 @@ function NoteCard({
                     </p>
                 )}
 
-                {/* Attachments Preview */}
-                {(note.attachments as FileAttachment[])?.length > 0 && (
+                {/* Attachments Preview Badge */}
+                {hasMedia && (
                     <div className="mt-4 flex flex-wrap gap-2">
-                        {(note.attachments as FileAttachment[]).map((at, i) => (
-                            <div key={i} className="relative group">
-                                {at.type === "image" ? (
-                                    <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10 bg-black/20">
-                                        <img
-                                            src={at.url}
-                                            alt={at.name}
-                                            className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform"
-                                            onClick={(e) => { e.stopPropagation(); window.open(at.url, '_blank'); }}
-                                        />
-                                    </div>
-                                ) : at.type === "audio" ? (
-                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 max-w-full">
-                                        <audio
-                                            src={at.url}
-                                            controls
-                                            className="h-8 w-40"
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-card/60 border border-white/5">
-                                        <NotebookPen className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-[10px] truncate max-w-[100px]">{at.name}</span>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setGalleryOpen(true); }}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 hover:bg-primary/20 hover:border-primary/40 transition-all group/badge"
+                        >
+                            <span className="text-xs font-semibold text-primary/80 group-hover/badge:text-primary transition-colors flex items-center gap-1.5">
+                                {imageCount > 0 && <span>🖼️ {imageCount} {imageCount === 1 ? 'Image' : 'Images'}</span>}
+                                {imageCount > 0 && (audioCount > 0 || videoCount > 0) && <span>•</span>}
+                                {audioCount > 0 && <span>🎤 {audioCount} {audioCount === 1 ? 'Audio' : 'Audio'}</span>}
+                                {audioCount > 0 && videoCount > 0 && <span>•</span>}
+                                {videoCount > 0 && <span>🎬 {videoCount} {videoCount === 1 ? 'Video' : 'Videos'}</span>}
+                            </span>
+                        </button>
                     </div>
                 )}
             </div>
@@ -332,6 +325,13 @@ function NoteCard({
                     {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
                 </span>
             </div>
+
+            {/* Media Gallery Portal */}
+            <MediaGalleryModal
+                open={galleryOpen}
+                onOpenChange={setGalleryOpen}
+                media={attachments}
+            />
 
         </div>
     );

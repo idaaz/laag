@@ -8,6 +8,7 @@ import { Brain, GraduationCap, Sword, Dumbbell, PlayCircle, PauseCircle, Trash2,
 interface LogTimelineProps {
     blocks: TimeBlockRow[];
     onFillGhost: (startTime: string) => void;
+    onEditBlock: (block: TimeBlockRow) => void;
 }
 
 const CATEGORY_MAP = {
@@ -22,7 +23,7 @@ const CATEGORY_MAP = {
     "Wasted": { color: "bg-rose-500/20 text-rose-500 border-rose-500/30", icon: Trash2 },
 };
 
-export function LogTimeline({ blocks, onFillGhost }: LogTimelineProps) {
+export function LogTimeline({ blocks, onFillGhost, onEditBlock }: LogTimelineProps) {
     // Generate the timeline for the day (e.g., from 6 AM to Now + 1 block)
     const timeline = useMemo(() => {
         const slots = [];
@@ -74,16 +75,22 @@ export function LogTimeline({ blocks, onFillGhost }: LogTimelineProps) {
                                 config.color.split(' ')[1].replace('text-', 'bg-')
                             )} />
 
-                            <div className={cn(
-                                "flex flex-col p-3 rounded-lg border transition-all hover:scale-[1.01] hover:shadow-lg",
-                                config.color
-                            )}>
+                            <button
+                                onClick={() => onEditBlock(block)}
+                                className={cn(
+                                    "flex flex-col w-full text-left p-3 rounded-lg border transition-all hover:scale-[1.01] hover:shadow-lg",
+                                    config.color
+                                )}
+                            >
                                 <div className="flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-2">
                                         <Icon className="w-3 h-3" />
                                         <span className="text-[10px] font-mono tracking-tighter uppercase opacity-80">{timeStr} — Logged</span>
                                     </div>
-                                    {block.energy_level >= 4 && <span className="text-[10px]">🔥</span>}
+                                    <div className="flex items-center gap-1">
+                                        {block.energy_level >= 4 && <span className="text-[10px]">🔥</span>}
+                                        <span className="text-[8px] opacity-40 uppercase font-mono">Edit</span>
+                                    </div>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-bold tracking-tight">{block.activity}</span>
@@ -92,7 +99,7 @@ export function LogTimeline({ blocks, onFillGhost }: LogTimelineProps) {
                                 {block.output_notes && (
                                     <p className="text-[10px] mt-1 opacity-60 line-clamp-1 italic">&quot;{block.output_notes}&quot;</p>
                                 )}
-                            </div>
+                            </button>
                         </div>
                     );
                 }

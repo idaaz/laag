@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 export function Dialog({
@@ -12,21 +13,29 @@ export function Dialog({
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
-  if (!open) return null;
-  return (
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
       onClick={() => onOpenChange(false)}
     >
       <div
-        className="w-full max-w-xl"
+        className="w-fit max-w-full"
         onClick={(event) => event.stopPropagation()}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

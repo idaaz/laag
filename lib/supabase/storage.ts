@@ -3,46 +3,47 @@ import { getSupabaseBrowserClient } from "./client";
 export type FileAttachment = {
     name: string;
     url: string;
-    type: "image" | "audio" | "file";
+    type: "image" | "audio" | "video" | "file";
     size?: number;
+    path: string;
 };
 
 export async function uploadNoteAttachment(
     userId: string,
     file: File | Blob,
     fileName: string,
-    type: "image" | "audio" | "file"
+    type: "image" | "audio" | "video"
 ): Promise<FileAttachment> {
-    const supabase = getSupabaseBrowserClient();
-
     // Sanitize filename: lowercase, remove non-alphanumeric/dot/dash, replace spaces with underscores
     const sanitizedName = fileName
         .toLowerCase()
         .replace(/\s+/g, '_')
         .replace(/[^a-z0-9._-]/g, '');
 
-    const filePath = `${userId}/${Date.now()}_${sanitizedName}`;
+    const finalFileName = `${Date.now()}_${sanitizedName}`;
 
-    const { data, error } = await supabase.storage
-        .from("note-attachments")
-        .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-        });
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("filename", finalFileName);
+    formData.append("userId", userId);
 
-    if (error) {
-        console.error("Supabase Storage Error:", error);
-        throw error;
+    const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        console.error("Upload API Error:", data);
+        throw new Error(data.error || "Failed to upload file to GitHub.");
     }
 
-    const { data: { publicUrl } } = supabase.storage
-        .from("note-attachments")
-        .getPublicUrl(data.path);
-
     return {
-        name: fileName,
-        url: publicUrl,
+        url: data.url,
         type,
+        path: `public/attachments/${userId}/${finalFileName}`,
+        name: fileName, // Original name
         size: file.size,
     };
 }
