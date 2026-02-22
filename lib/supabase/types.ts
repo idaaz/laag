@@ -332,7 +332,6 @@ export type VisionNoteRow = {
   title: string;
   body: string;
   note_type: VisionNoteType;
-  vision_pillar: VisionPillar;
   horizon: VisionHorizon;
   impact_score: number;
   effort_score: number;
@@ -343,6 +342,7 @@ export type VisionNoteRow = {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+  attachments: Json;
 };
 
 export type AppNotificationRow = {

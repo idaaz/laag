@@ -85,7 +85,7 @@ export function CreateStartLogPrototype() {
             type="submit"
             className={cn(
               "h-10 rounded-lg border px-3 inline-flex items-center justify-center gap-2",
-              "transition-all duration-[160ms] ease-[var(--ease-soft)] motion-reduce:transition-none",
+              "transition-all duration-&lsqb;160ms&rsqb; ease-&lsqb;var(--ease-soft)&rsqb; motion-reduce:transition-none",
               "active:scale-[0.97]",
               "border-primary bg-primary text-primary-foreground"
             )}
@@ -102,7 +102,7 @@ export function CreateStartLogPrototype() {
             disabled={!state.taskCreated}
             className={cn(
               "h-10 rounded-lg border px-3 inline-flex items-center justify-center gap-2",
-              "transition-all duration-[160ms] ease-[var(--ease-soft)] motion-reduce:transition-none",
+              "transition-all duration-&lsqb;160ms&rsqb; ease-&lsqb;var(--ease-soft)&rsqb; motion-reduce:transition-none",
               "active:scale-[0.97] disabled:opacity-45 disabled:cursor-not-allowed",
               state.timerStarted ? "border-success bg-success text-white" : "border-border bg-background"
             )}
@@ -116,7 +116,7 @@ export function CreateStartLogPrototype() {
             disabled={!state.timerStarted}
             className={cn(
               "h-10 rounded-lg border px-3 inline-flex items-center justify-center gap-2",
-              "transition-all duration-[160ms] ease-[var(--ease-soft)] motion-reduce:transition-none",
+              "transition-all duration-&lsqb;160ms&rsqb; ease-&lsqb;var(--ease-soft)&rsqb; motion-reduce:transition-none",
               "active:scale-[0.97] disabled:opacity-45 disabled:cursor-not-allowed",
               state.logged ? "border-success bg-success text-white" : "border-border bg-background"
             )}

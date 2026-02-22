@@ -46,14 +46,14 @@ export function NotificationPopover({ userId }: { userId?: string }) {
             <PopoverContent className="w-80 p-0" align="end">
                 <div className="flex items-center justify-between border-b px-4 py-2">
                     <h3 className="text-sm font-semibold">Notifications</h3>
-                    {unreadCount > 0 && (
+                    {notifications.length > 0 && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-auto px-2 py-1 text-xs text-primary"
+                            className="h-auto px-2 py-1 text-xs text-primary hover:bg-primary/5 active:scale-95 transition-all"
                             onClick={() => markAllAsRead.mutate()}
                         >
-                            Mark all as read
+                            Clear all
                         </Button>
                     )}
                 </div>

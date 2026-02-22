@@ -29,7 +29,7 @@ export function DropdownMenu({ trigger, children, className }: DropdownMenuProps
         {trigger}
       </button>
       {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-80 rounded-md border border-border bg-card p-2 shadow-lg">
+        <div className="absolute right-0 z-[100] mt-2 w-56 rounded-xl border border-white/10 bg-[#0f172a] p-1.5 shadow-2xl ring-1 ring-black/5 motion-in-from-top-1 motion-in-duration-200">
           {children}
         </div>
       ) : null}

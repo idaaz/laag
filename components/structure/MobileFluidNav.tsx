@@ -22,17 +22,11 @@ export function MobileFluidNav() {
 
     const pathname = usePathname();
     const router = useRouter();
-    const { kpis, isOpen: isKPIOpen, setIsOpen: setIsKPIOpen } = useMobileKPI();
-
-    // Context flags
-    const showPlusButton = ["/tasks", "/habits", "/daily-logs", "/notes"].includes(pathname);
+    const { isOpen: isKPIOpen, setIsOpen: setIsKPIOpen } = useMobileKPI();
 
     // Always show 4 buttons as requested, but disable/dim if current context doesn't support them?
     // User specifically asked for 4 fixed buttons.
-    const showKPIButton = true; // Always show even if no kpis (could show empty or hint)
-    const showSearchButton = true;
-    const showNavButton = true;
-    const showAddButton = true;
+
 
     // Show quote on all screens now as requested
     const showQuote = true;

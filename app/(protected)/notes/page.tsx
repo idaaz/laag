@@ -1,176 +1,338 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Plus, Pin, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Plus, Pin, MoreVertical, Trash2, Edit3, NotebookPen } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import type { FileAttachment } from "@/lib/supabase/storage";
+
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
+import { LiveRegion } from "@/components/structure/LiveRegion";
+import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
-import { NoteFormDialog } from "@/components/notes/NoteFormDialog";
+import {
+    DropdownMenu,
+    DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+
 import { useAuth } from "@/hooks/useAuth";
-import { useVisionNotes, type VisionNoteFilters, type VisionNoteDraft } from "@/hooks/useVisionNotes";
+import { useNotes } from "@/hooks/useNotes";
+import { NoteFormDialog } from "@/components/notes/NoteFormDialog";
 import type { VisionNoteRow } from "@/lib/supabase/types";
-import { format } from "date-fns";
 
 export default function NotesPage() {
     const { user } = useAuth();
-    const userId = user?.id;
     const searchParams = useSearchParams();
-    const router = useRouter();
+    const { notes, isLoading, updateNoteAsync, deleteNoteAsync } = useNotes(user?.id);
 
+    const [announcement, setAnnouncement] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    // Dialog state
     const [formOpen, setFormOpen] = useState(false);
     const [editingNote, setEditingNote] = useState<VisionNoteRow | null>(null);
-    const [searchTerm, setSearchTerm] = useState("");
 
-    const filters = useMemo<VisionNoteFilters>(() => ({
-        viewTab: "board",
-        search: searchTerm
-    }), [searchTerm]);
-
-    const { notesQuery, createNote, updateNote, pending } = useVisionNotes(userId, filters);
-
-    // Sync searchTerm with URL for in-tab search
-    useEffect(() => {
-        const q = searchParams.get("q") || "";
-        setSearchTerm(q);
-    }, [searchParams]);
-
-    // Handle ?action=new
+    // Initial query param handling
     useEffect(() => {
         if (searchParams.get("action") === "new") {
             setEditingNote(null);
             setFormOpen(true);
-            // Clean up action without removing q
-            const params = new URLSearchParams(searchParams.toString());
-            params.delete("action");
-            const qs = params.toString();
-            router.replace(qs ? `/notes?${qs}` : "/notes", { scroll: false });
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete("action");
+            window.history.replaceState({}, "", newUrl);
         }
-    }, [searchParams, router]);
+    }, [searchParams]);
 
-    const handleCreate = async (draft: VisionNoteDraft) => {
-        await createNote(draft);
-    };
+    // Filtering logic
+    const filteredNotes = useMemo(() => {
+        return notes.filter((n) => {
+            if (searchQuery && !n.title.toLowerCase().includes(searchQuery.toLowerCase()) && !n.body.toLowerCase().includes(searchQuery.toLowerCase())) {
+                return false;
+            }
+            return true;
+        });
+    }, [notes, searchQuery]);
 
-    const handleUpdate = async (draft: VisionNoteDraft) => {
-        if (editingNote) {
-            await updateNote(editingNote.id, draft);
-        }
-    };
+    // Split pinned vs unpinned
+    const pinnedNotes = filteredNotes.filter((n) => n.pinned);
+    const regularNotes = filteredNotes.filter((n) => !n.pinned);
 
-    const openEditDialog = (note: VisionNoteRow) => {
+    const handleEdit = (note: VisionNoteRow) => {
         setEditingNote(note);
         setFormOpen(true);
     };
 
-    const allNotes = useMemo(() => {
-        return notesQuery.data?.pages.flatMap((page) => page) || [];
-    }, [notesQuery.data]);
+    const handleTogglePin = async (note: VisionNoteRow) => {
+        try {
+            await updateNoteAsync({ id: note.id, payload: { pinned: !note.pinned } });
+            setAnnouncement(`Note ${note.pinned ? "unpinned" : "pinned"}.`);
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
-    const isLoading = notesQuery.isLoading && !notesQuery.data;
+    const handleDelete = async (note: VisionNoteRow) => {
+        if (!window.confirm("Are you sure you want to permanently delete this note?")) return;
+        try {
+            await deleteNoteAsync(note.id);
+            setAnnouncement("Note deleted.");
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     return (
-        <>
-            <NoteFormDialog
-                open={formOpen}
-                onOpenChange={(open) => {
-                    setFormOpen(open);
-                    if (!open) setTimeout(() => setEditingNote(null), 200);
-                }}
-                onSubmit={editingNote ? handleUpdate : handleCreate}
-                initialData={editingNote || undefined}
-                isLoading={pending.creating || pending.updating}
-            />
+        <PageFrame
+            header={
+                <SectionHeader
+                    title="Notes"
+                    description="Capture context, risk, and vision."
+                    icon={<NotebookPen className="h-5 w-5" />}
+                    actions={
+                        <Button
+                            className="bg-primary text-primary-foreground shadow-md transition-all hover:bg-primary/90"
+                            onClick={() => {
+                                setEditingNote(null);
+                                setFormOpen(true);
+                            }}
+                        >
+                            <Plus className="h-4 w-4 mr-1.5" />
+                            New Note
+                        </Button>
+                    }
+                />
+            }
+        >
+            {/* ═══════════════════════════════════════════════
+                 SEARCH & FILTERS
+            ═══════════════════════════════════════════════ */}
+            <div className="col-span-full">
+                <input
+                    type="text"
+                    placeholder="Search context..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-card/60 backdrop-blur-sm px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                />
+            </div>
 
-            <PageFrame
-                header={
-                    <SectionHeader
-                        title="Notes"
-                        description="Thoughts & Ideas."
-                        actions={
-                            <Button onClick={() => setFormOpen(true)} className="hidden md:flex gap-2">
-                                <Plus className="h-4 w-4" />
-                                New
-                            </Button>
-                        }
-                    />
-                }
-            >
-                <div className="col-span-full mb-4 md:mb-6">
-                    <div className="relative hidden md:block max-w-md">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Search notes..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 bg-card/50"
-                        />
-                    </div>
+            {/* ═══════════════════════════════════════════════
+                 SKELETON LOADING
+            ═══════════════════════════════════════════════ */}
+            {isLoading && (
+                <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-4">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <Skeleton key={i} className="h-[200px] w-full rounded-2xl bg-card/40 border border-white/5" />
+                    ))}
                 </div>
+            )}
 
-                <div className="col-span-full">
-                    {isLoading ? (
-                        <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                                <Skeleton key={i} className="h-48 w-full rounded-2xl break-inside-avoid" />
-                            ))}
-                        </div>
-                    ) : allNotes.length > 0 ? (
-                        <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4 pb-12">
-                            {allNotes.map((note) => (
-                                <article
-                                    key={note.id}
-                                    onClick={() => openEditDialog(note)}
-                                    className="group relative break-inside-avoid rounded-2xl border border-border/60 bg-card/80 p-5 shadow-sm hover:shadow-md hover:border-border transition-all cursor-pointer backdrop-blur-sm"
-                                >
-                                    <div className="flex items-start justify-between gap-2 mb-2">
-                                        <h3 className="font-semibold text-foreground line-clamp-2 leading-tight">
-                                            {note.title}
-                                        </h3>
-                                        {note.pinned && (
-                                            <Pin className="h-4 w-4 text-primary shrink-0" />
-                                        )}
-                                    </div>
-                                    <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-6 mb-4">
-                                        {note.body}
-                                    </p>
-                                    <div className="flex flex-wrap items-center justify-between gap-2 mt-auto pt-2 border-t border-border/40">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
-                                                {note.vision_pillar}
-                                            </span>
-                                            <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-border">
-                                                {note.note_type}
-                                            </span>
-                                        </div>
-                                        <span className="text-[10px] text-muted-foreground">
-                                            {format(new Date(note.updated_at), "MMM d, yyyy")}
-                                        </span>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="py-20">
-                            <EmptyState
-                                title="No notes found"
-                                description={searchTerm ? "Try adjusting your search." : "Capture your first thought or idea."}
-                                action={
-                                    !searchTerm ? (
-                                        <Button onClick={() => setFormOpen(true)}>
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Capture Note
-                                        </Button>
-                                    ) : undefined
-                                }
-                            />
-                        </div>
+            {!isLoading && filteredNotes.length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-center">
+                    <NotebookPen className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                    <h3 className="text-lg font-bold text-foreground">Empty Space</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mt-2">
+                        You have no notes matching this filter. Start documenting your journey.
+                    </p>
+                    <Button
+                        variant="link"
+                        onClick={() => { setEditingNote(null); setFormOpen(true); }}
+                        className="mt-4 text-primary"
+                    >
+                        Create your first note
+                    </Button>
+                </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════
+                 NOTE GRID RENDERER
+            ═══════════════════════════════════════════════ */}
+            {!isLoading && filteredNotes.length > 0 && (
+                <div className="col-span-full space-y-8 mt-2">
+
+                    {/* PINNED SECTION */}
+                    {pinnedNotes.length > 0 && (
+                        <section className="space-y-4">
+                            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground ml-1 flex items-center gap-2">
+                                <Pin className="h-3.5 w-3.5" /> Pinned
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {pinnedNotes.map((note) => (
+                                    <NoteCard
+                                        key={note.id}
+                                        note={note}
+                                        onEdit={() => handleEdit(note)}
+                                        onTogglePin={() => handleTogglePin(note)}
+                                        onDelete={() => handleDelete(note)}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* REGULAR SECTION */}
+                    {regularNotes.length > 0 && (
+                        <section className="space-y-4 pt-2">
+                            {pinnedNotes.length > 0 && (
+                                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground ml-1">
+                                    Everything Else
+                                </h3>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+                                {regularNotes.map((note) => (
+                                    <NoteCard
+                                        key={note.id}
+                                        note={note}
+                                        onEdit={() => handleEdit(note)}
+                                        onTogglePin={() => handleTogglePin(note)}
+                                        onDelete={() => handleDelete(note)}
+                                    />
+                                ))}
+                            </div>
+                        </section>
                     )}
                 </div>
-            </PageFrame>
-        </>
+            )}
+
+            <LiveRegion message={announcement} />
+
+            <NoteFormDialog
+                open={formOpen}
+                onOpenChange={setFormOpen}
+                editingNote={editingNote}
+            />
+
+            <FloatingActionButton
+                label="New Note"
+                onClick={() => { setEditingNote(null); setFormOpen(true); }}
+            />
+        </PageFrame>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────
+                             CARD UI
+   ───────────────────────────────────────────────────────────── */
+
+function NoteCard({
+    note,
+    onEdit,
+    onTogglePin,
+    onDelete
+}: {
+    note: VisionNoteRow;
+    onEdit: () => void;
+    onTogglePin: () => void;
+    onDelete: () => void;
+}) {
+    // Dynamic styling based on impact score & type
+    const isHighImpact = note.impact_score >= 8;
+    const isSecret = note.note_type === "secret";
+
+    const baseClasses = "relative group flex flex-col rounded-2xl border bg-card/40 backdrop-blur-md p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer";
+    const borderClasses = isHighImpact
+        ? "border-primary/30 hover:border-primary/50 shadow-[0_0_15px_-3px_rgba(var(--primary-rgb),0.1)]"
+        : "border-white/5 hover:border-white/20 hover:bg-card/60";
+
+    return (
+        <div className={`${baseClasses} ${borderClasses}`} onClick={onEdit}>
+            {/* Aesthetic Glow for high impact - moved inside a clipped container */}
+            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                {isHighImpact && (
+                    <div className="absolute -right-8 -bottom-8 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+                )}
+            </div>
+            {/* Actions: Absolute positioned to reduce top space */}
+            <div className="absolute top-4 right-4 opacity-0 transition-opacity group-hover:opacity-100 flex items-center gap-1 z-20" onClick={(e) => e.stopPropagation()}>
+                <button
+                    onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
+                    className={`p-1.5 rounded-md hover:bg-white/10 transition-colors ${note.pinned ? "text-primary" : "text-muted-foreground"}`}
+                >
+                    <Pin className="h-3.5 w-3.5" />
+                </button>
+
+                <DropdownMenu
+                    trigger={
+                        <div className="p-1.5 rounded-md text-muted-foreground hover:bg-white/10 transition-colors outline-none cursor-pointer">
+                            <MoreVertical className="h-3.5 w-3.5" />
+                        </div>
+                    }
+                >
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+                        <Edit3 className="mr-2 h-4 w-4" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onTogglePin(); }}>
+                        <Pin className="mr-2 h-4 w-4" /> {note.pinned ? "Unpin" : "Pin context"}
+                    </DropdownMenuItem>
+                    <div className="my-1 h-px bg-white/5" />
+                    <DropdownMenuItem
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        className="text-destructive focus:bg-destructive/10 focus:text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" /> Destroy Note
+                    </DropdownMenuItem>
+                </DropdownMenu>
+            </div>
+
+            {/* Content */}
+            <div className={`relative z-10 flex-1 flex flex-col ${isSecret ? 'blur-[3px] hover:blur-0 transition-all duration-300' : ''}`}>
+                <h4 className={`text-base font-bold text-foreground mb-2 leading-snug line-clamp-2 pr-16`}>
+                    {note.title}
+                </h4>
+
+                {note.body && (
+                    <p className="text-sm text-muted-foreground/80 leading-relaxed whitespace-pre-wrap line-clamp-4 font-mono">
+                        {note.body}
+                    </p>
+                )}
+
+                {/* Attachments Preview */}
+                {(note.attachments as FileAttachment[])?.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {(note.attachments as FileAttachment[]).map((at, i) => (
+                            <div key={i} className="relative group">
+                                {at.type === "image" ? (
+                                    <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10 bg-black/20">
+                                        <img
+                                            src={at.url}
+                                            alt={at.name}
+                                            className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform"
+                                            onClick={(e) => { e.stopPropagation(); window.open(at.url, '_blank'); }}
+                                        />
+                                    </div>
+                                ) : at.type === "audio" ? (
+                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 max-w-full">
+                                        <audio
+                                            src={at.url}
+                                            controls
+                                            className="h-8 w-40"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-card/60 border border-white/5">
+                                        <NotebookPen className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-[10px] truncate max-w-[100px]">{at.name}</span>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-4 pt-3 flex items-center justify-between border-t border-white/5 z-10">
+                <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                    <span>{note.note_type}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground/40 font-medium">
+                    {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                </span>
+            </div>
+
+        </div>
     );
 }

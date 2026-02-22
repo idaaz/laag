@@ -16,13 +16,12 @@ import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
 
 const PAGE_SIZE = 10;
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 export default function TrackingPage() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [page, setPage] = useState(1);
   const { visitedUrlsQuery, analyticsQuery } = useTracking(userId, page, PAGE_SIZE);
   const [search, setSearch] = useState("");

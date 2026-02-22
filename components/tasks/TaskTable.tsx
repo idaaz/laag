@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
-import { ArrowUpRight, CheckCircle2, Flag, Trash2 } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Flag, Trash2, NotebookPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { TaskRow } from "@/lib/supabase/types";
@@ -17,11 +17,13 @@ function priorityTone(priority: TaskRow["priority"]) {
 export function TaskTable({
   tasks,
   onComplete,
-  onDelete
+  onDelete,
+  onAddNote
 }: {
   tasks: TaskRow[];
   onComplete: (task: TaskRow) => Promise<void>;
   onDelete: (taskId: string) => Promise<void>;
+  onAddNote: (task: TaskRow) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -57,19 +59,24 @@ export function TaskTable({
                 {task.deadline_at ? format(new Date(task.deadline_at), "MMM d, HH:mm") : "No deadline"}
               </p>
             </Link>
-            <div className="flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={task.status === "completed"}
-                onClick={() => onComplete(task)}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Done
-              </Button>
-              <Button size="sm" variant="destructive" onClick={() => onDelete(task.id)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={task.status === "completed"}
+                  onClick={() => onComplete(task)}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Done
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => onDelete(task.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              </div>
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground hover:text-primary" onClick={() => onAddNote(task)}>
+                <NotebookPen className="h-3 w-3 mr-1.5" /> Context
               </Button>
             </div>
           </div>

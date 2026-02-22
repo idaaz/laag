@@ -67,7 +67,7 @@ export function QuickActionBar({ actions, className }: QuickActionBarProps) {
             className={cn(
               "relative inline-flex items-center justify-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm font-medium sm:px-3 sm:py-2",
               "overflow-hidden transition-all motion-reduce:transition-none",
-              "duration-[160ms] ease-[var(--ease-soft)]",
+              "duration-&lsqb;160ms&rsqb; ease-&lsqb;var(--ease-soft)&rsqb;",
               "focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-45",
               isActive ? "scale-[0.97]" : "scale-100",
               isFilled ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-secondary"

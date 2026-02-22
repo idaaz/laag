@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { format, isPast } from "date-fns";
-import { Plus } from "lucide-react";
+import { Plus, NotebookPen } from "lucide-react";
 
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
@@ -190,6 +190,10 @@ export default function TasksPage() {
                                                     >
                                                         Complete
                                                     </Button>
+                                                    <Button size="sm" variant="outline" className="flex-1" onClick={() => router.push(`/notes?action=new&title=${encodeURIComponent(`Context: ${task.title}`)}`)}>
+                                                        <NotebookPen className="h-3.5 w-3.5 mr-1" />
+                                                        Note
+                                                    </Button>
                                                     <Button size="sm" variant="destructive" onClick={() => deleteTask(task.id)}>
                                                         Delete
                                                     </Button>
@@ -209,6 +213,9 @@ export default function TasksPage() {
                                             }}
                                             onDelete={async (taskId) => {
                                                 await deleteTask(taskId);
+                                            }}
+                                            onAddNote={(task) => {
+                                                router.push(`/notes?action=new&title=${encodeURIComponent(`Context: ${task.title}`)}`);
                                             }}
                                         />
                                     </div>

@@ -169,15 +169,15 @@ export default function DailyLogsPage() {
         }
     });
 
-    const blocks = blocksQuery.data || [];
     const filteredBlocks = useMemo(() => {
+        const blocks = blocksQuery.data || [];
         if (!searchQuery) return blocks;
         return blocks.filter(b =>
             (b.activity || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
             (b.output_notes || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
             (b.category || "").toLowerCase().includes(searchQuery.toLowerCase())
         );
-    }, [blocks, searchQuery]);
+    }, [blocksQuery.data, searchQuery]);
 
     const stats = useMemo(() => {
         const blocks = blocksQuery.data ?? [];

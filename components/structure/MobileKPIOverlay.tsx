@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { motion, useAnimation, PanInfo } from "framer-motion";
 import { } from "lucide-react";
 import { useMobileKPI } from "@/lib/context/MobileKPIContext";
-import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const PANEL_WIDTH = 240; // Desktop-ish width or percentage
@@ -13,7 +12,6 @@ export function MobileKPIOverlay() {
     const { kpis, isOpen, setIsOpen } = useMobileKPI();
     const controls = useAnimation();
     const panelRef = useRef<HTMLDivElement>(null);
-    const pathname = usePathname();
 
     // const isRightAlignedKPI = ["/dashboard", "/achievements", "/analytics"].includes(pathname);
 

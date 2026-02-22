@@ -34,7 +34,7 @@ export function useNotifications(userId?: string) {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from("app_notifications")
-        .update({ is_read: true } as never)
+        .delete()
         .eq("id", id);
       if (error) throw error;
     },
@@ -48,7 +48,7 @@ export function useNotifications(userId?: string) {
       if (!userId) return;
       const { error } = await supabase
         .from("app_notifications")
-        .update({ is_read: true } as never)
+        .delete()
         .eq("user_id", userId)
         .eq("is_read", false);
       if (error) throw error;

@@ -18,7 +18,8 @@ function emit() {
 }
 
 export function pushToast(title: string, description?: string) {
-  const item = { id: crypto.randomUUID(), title, description, variant: "success" as const };
+  const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9);
+  const item = { id, title, description, variant: "success" as const };
   messages = [...messages, item];
   emit();
   setTimeout(() => {

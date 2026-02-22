@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { BarChart3, TrendingUp, TrendingDown, Minus, PieChart } from "lucide-react";
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
@@ -12,8 +12,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
-import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
-import { useRouter } from "next/navigation";
 
 const XPLineChart = dynamic(() => import("@/components/charts/XPLineChart").then((m) => m.XPLineChart));
 const RadarLifeBalance = dynamic(() =>
@@ -48,7 +46,6 @@ function TrendIndicator({ trend }: { trend: "improving" | "worsening" | "stable"
 
 export default function AnalyticsPage() {
     const { user } = useAuth();
-    const router = useRouter();
     const [range, setRange] = useState<"7d" | "30d" | "90d">("7d");
     const analytics = useAnalytics(user?.id, range);
     const { isLoading } = analytics;
@@ -65,6 +62,16 @@ export default function AnalyticsPage() {
 
     const model = analytics.data;
     const loading = isLoading && !analytics.data;
+
+    const mobileKPIs = useMemo(() => {
+        return [
+            { label: "Burnout", value: model?.burnoutIndex.toFixed(1) ?? "0.0", color: "warning" as const },
+            { label: "Overconfidence", value: model?.overconfidenceIndex.toFixed(1) ?? "0.0", color: "calibration" as const },
+            { label: "Productivity", value: model?.productivityTrend?.averageProductivity.toFixed(0) ?? "0", color: "focus" as const }
+        ];
+    }, [model?.burnoutIndex, model?.overconfidenceIndex, model?.productivityTrend?.averageProductivity]);
+
+    useRegisterKPIs(mobileKPIs);
 
     return (
         <PageFrame
@@ -90,18 +97,6 @@ export default function AnalyticsPage() {
                 />
             }
         >
-            <div className="hidden">
-                {(() => {
-                    const kpis = [
-                        { label: "Burnout", value: model?.burnoutIndex.toFixed(1) ?? "0.0", color: "warning" as const },
-                        { label: "Overconfidence", value: model?.overconfidenceIndex.toFixed(1) ?? "0.0", color: "calibration" as const },
-                        { label: "Productivity", value: model?.productivityTrend?.averageProductivity.toFixed(0) ?? "0", color: "focus" as const }
-                    ];
-                    // eslint-disable-next-line react-hooks/rules-of-hooks
-                    useRegisterKPIs(kpis);
-                    return null;
-                })()}
-            </div>
             {/* Mobile Snapshot (Hidden, use Overlay instead) */}
             <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-3 hidden lg:block md:hidden">
                 <h2 className="text-sm font-semibold mb-2">Snapshot</h2>
@@ -252,11 +247,6 @@ export default function AnalyticsPage() {
                     )}
                 </article>
             </section>
-
-            <FloatingActionButton
-                label="New Insight"
-                onClick={() => router.push("/notes?action=new&type=insight" as never)}
-            />
         </PageFrame>
     );
 }

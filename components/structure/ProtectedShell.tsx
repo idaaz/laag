@@ -49,7 +49,7 @@ export function ProtectedShell({ children, modal, initialEmail }: ProtectedShell
                                 id="main-content"
                                 className="h-full min-h-0 overflow-hidden rounded-none border-0 bg-transparent p-0 lg:rounded-xl lg:border lg:border-border/80 lg:bg-card/35 lg:p-3"
                             >
-                                <div className="h-full overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+70px)] laag-scroll lg:px-0 lg:pb-0 lg:mb-0">
+                                <div className="h-full overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+115px)] laag-scroll lg:px-0 lg:pb-0 lg:mb-0">
                                     {children}
                                 </div>
                             </main>

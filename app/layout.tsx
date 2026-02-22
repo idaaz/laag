@@ -24,18 +24,23 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap"
 });
 
+export const viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: `${APP_NAME} | Discipline OS`,
   description:
     "LAAG (Life As A Game): a ruthless, measurable discipline operating system.",
-  manifest: "/manifest.ts",
-  themeColor: "#000000",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: APP_NAME,
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
   },
+  manifest: "/manifest.ts",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
