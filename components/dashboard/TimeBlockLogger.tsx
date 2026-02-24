@@ -60,7 +60,7 @@ export function TimeBlockLogger({ onSave, isLoading, initialData, onCancel }: Ti
     useEffect(() => {
         if (initialData) {
             setActivity(initialData.activity || "");
-            setCategory((initialData.category as any) || "Deep Work");
+            setCategory((initialData.category as typeof CATEGORIES[number]["id"]) || "Deep Work");
             setIsPlanned(initialData.is_planned);
             setEnergy(initialData.energy_level || 3);
             setNotes(initialData.output_notes || "");

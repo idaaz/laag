@@ -44,6 +44,23 @@ export function MediaCaptureZone({ userId, onAttachmentsChange, onUploadingChang
         onUploadingChange?.(isUploading);
     }, [isUploading, onUploadingChange]);
 
+    // Handle Camera Stream attachment safely after mount
+    useEffect(() => {
+        if (mode === "camera" && stream && videoRef.current) {
+            console.log("DEBUG: Attaching stream to video element");
+            videoRef.current.srcObject = stream;
+        }
+    }, [mode, stream]);
+
+    // Cleanup stream on unmount
+    useEffect(() => {
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [stream]);
+
     // Helper to safely update local state and inform parent simultaneously
     const updateAttachments = (newAttachments: FileAttachment[]) => {
         setAttachments(newAttachments);
@@ -79,12 +96,14 @@ export function MediaCaptureZone({ userId, onAttachmentsChange, onUploadingChang
         e.preventDefault();
         e.stopPropagation();
         try {
+            console.log("DEBUG: Requesting camera access...");
             const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             setStream(s);
-            if (videoRef.current) videoRef.current.srcObject = s;
+            // We don't set videoRef.current.srcObject here because the video element 
+            // might not be mounted yet. useEffect handles it.
             setMode("camera");
         } catch (err) {
-            console.error(err);
+            console.error("DEBUG: Camera access error:", err);
             pushToast("Camera Access Denied", "Please enable camera permissions.");
         }
     };

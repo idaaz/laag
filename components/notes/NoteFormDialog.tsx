@@ -36,6 +36,11 @@ const noteFormSchema = z.object({
         "thought", "idea", "decision", "risk", "question",
         "milestone", "insight", "information", "secret"
     ]),
+    vision_pillar: z.enum([
+        "product", "growth", "discipline", "health",
+        "relationships", "learning", "operations"
+    ]),
+    horizon: z.enum(["today", "this_week", "this_month", "quarter", "long_term"]),
     impact_score: z.number().min(1).max(10),
     pinned: z.boolean(),
     attachments: z.unknown().array().optional(),
@@ -51,6 +56,8 @@ type NoteFormDialogProps = {
         title: string;
         body: string;
         note_type: NoteFormValues["note_type"];
+        vision_pillar: NoteFormValues["vision_pillar"];
+        horizon: NoteFormValues["horizon"];
         impact_score: number;
         pinned: boolean;
         attachments?: FileAttachment[] | Record<string, unknown>[] | unknown;
@@ -77,6 +84,8 @@ export function NoteFormDialog({ open, onOpenChange, editingNote }: NoteFormDial
             title: "",
             body: "",
             note_type: "thought",
+            vision_pillar: "product",
+            horizon: "this_week",
             impact_score: 5,
             pinned: false,
             attachments: [],
@@ -90,11 +99,13 @@ export function NoteFormDialog({ open, onOpenChange, editingNote }: NoteFormDial
     useEffect(() => {
         if (open) {
             if (editingNote) {
-                console.log("Resetting form with editingNote:", editingNote);
+                console.log("NoteFormDialog: Populating for edit:", editingNote);
                 reset({
                     title: editingNote.title || "",
                     body: editingNote.body || "",
-                    note_type: editingNote.note_type || "thought",
+                    note_type: (editingNote.note_type?.toLowerCase() as NoteFormValues["note_type"]) || "thought",
+                    vision_pillar: (editingNote.vision_pillar?.toLowerCase() as NoteFormValues["vision_pillar"]) || "product",
+                    horizon: (editingNote.horizon?.toLowerCase() as NoteFormValues["horizon"]) || "this_week",
                     impact_score: editingNote.impact_score ?? 5,
                     pinned: !!editingNote.pinned,
                     attachments: (Array.isArray(editingNote.attachments) ? editingNote.attachments : []) as unknown[],
@@ -104,6 +115,8 @@ export function NoteFormDialog({ open, onOpenChange, editingNote }: NoteFormDial
                     title: searchParams.get("title") || "",
                     body: "",
                     note_type: "thought",
+                    vision_pillar: "product",
+                    horizon: "this_week",
                     impact_score: 5,
                     pinned: false,
                     attachments: [] as unknown[],
@@ -212,6 +225,62 @@ export function NoteFormDialog({ open, onOpenChange, editingNote }: NoteFormDial
 
                         {/* Metadata Grid */}
                         <div className="grid grid-cols-2 gap-4">
+                            {/* Stereotype (Pillar) */}
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Stereotype
+                                </Label>
+                                <Controller
+                                    name="vision_pillar"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select
+                                            key={editingNote?.id || "new-pillar"}
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                        >
+                                            <SelectTrigger className="bg-background/50 border-white/10 h-10">
+                                                <SelectValue placeholder="Select type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {["product", "growth", "discipline", "health", "relationships", "learning", "operations"].map((p) => (
+                                                    <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.vision_pillar && <p className="text-xs text-destructive mt-1 font-medium">{errors.vision_pillar.message}</p>}
+                            </div>
+
+                            {/* Horizon */}
+                            <div className="space-y-2">
+                                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Horizon
+                                </Label>
+                                <Controller
+                                    name="horizon"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select
+                                            key={editingNote?.id || "new-horizon"}
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                        >
+                                            <SelectTrigger className="bg-background/50 border-white/10 h-10">
+                                                <SelectValue placeholder="Select horizon" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {["today", "this_week", "this_month", "quarter", "long_term"].map((h) => (
+                                                    <SelectItem key={h} value={h} className="capitalize">{h.replace('_', ' ')}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.horizon && <p className="text-xs text-destructive mt-1 font-medium">{errors.horizon.message}</p>}
+                            </div>
+
                             {/* Note Type */}
                             <div className="space-y-2 col-span-2">
                                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -222,6 +291,7 @@ export function NoteFormDialog({ open, onOpenChange, editingNote }: NoteFormDial
                                     control={control}
                                     render={({ field }) => (
                                         <Select
+                                            key={editingNote?.id || "new-type"}
                                             onValueChange={field.onChange}
                                             value={field.value}
                                         >

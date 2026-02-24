@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-    request: Request,
-    { params }: { params: { path: string[] } }
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> }
 ) {
+    const { path } = await params;
     try {
         const owner = process.env.GITHUB_REPO_OWNER;
         const repo = process.env.GITHUB_REPO_NAME;
@@ -17,7 +18,7 @@ export async function GET(
         // Reconstruct the file path from the dynamic route segments
         // Example: /api/media/public/attachments/userId/filename.jpg
         // path array: ['public', 'attachments', 'userId', 'filename.jpg']
-        const filePath = params.path.join('/');
+        const filePath = path.join('/');
 
         // We must fetch from the GitHub REST API to get the content via token
         // The raw.githubusercontent.com URL often requires the token sent as a URL param

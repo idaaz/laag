@@ -1,4 +1,3 @@
-import { getSupabaseBrowserClient } from "./client";
 
 export type FileAttachment = {
     name: string;

@@ -318,8 +318,12 @@ function NoteCard({
 
             {/* Footer */}
             <div className="mt-4 pt-3 flex items-center justify-between border-t border-white/5 z-10">
-                <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                    <span className="text-primary/70">{note.vision_pillar}</span>
+                    <span className="opacity-30">•</span>
                     <span>{note.note_type}</span>
+                    <span className="opacity-30">•</span>
+                    <span className="text-muted-foreground/40">{note.horizon?.replace('_', ' ')}</span>
                 </div>
                 <span className="text-[10px] text-muted-foreground/40 font-medium">
                     {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
