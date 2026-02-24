@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { pushToast } from "@/components/ui/toast";
 import type { HabitRow, HabitQuestionRow, HabitCompletionAnswerRow } from "@/lib/supabase/types";
 
 const HABIT_QUERY_KEY = ["habits"];
@@ -47,6 +48,8 @@ export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
       name: string;
       frequency_per_week?: number;
       xp_per_completion?: number;
+      time_of_day?: "morning" | "afternoon" | "evening" | "night" | "anytime";
+      specific_time?: string | null;
       questions?: (Omit<HabitQuestionRow, "id" | "habit_id" | "user_id" | "created_at" | "updated_at"> & { id?: string })[]
     }) => {
       if (!userId) throw new Error("Missing user");
@@ -55,6 +58,8 @@ export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
         name: payload.name,
         frequency_per_week: payload.frequency_per_week ?? 5,
         xp_per_completion: payload.xp_per_completion ?? 12,
+        time_of_day: payload.time_of_day ?? "anytime",
+        specific_time: payload.specific_time ?? null,
         current_streak: 0,
         longest_streak: 0,
         relapse_count: 0,
@@ -84,13 +89,17 @@ export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
         if (questionsError) throw new Error(questionsError.message);
       }
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: HABIT_QUERY_KEY });
+      pushToast("Habit Created", `"${variables.name}" habit has been established.`);
 
       // Trigger achievement check for habit creation
       if (userId) {
-        const { checkAndUnlockAchievements } = await import("@/lib/engines/achievementEngine");
-        checkAndUnlockAchievements(userId).catch(console.error);
+        fetch("/api/achievements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId })
+        }).catch(console.error);
       }
     }
   });
@@ -101,16 +110,20 @@ export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
       name?: string;
       frequency_per_week?: number;
       xp_per_completion?: number;
+      time_of_day?: "morning" | "afternoon" | "evening" | "night" | "anytime";
+      specific_time?: string | null;
       questions?: (Omit<HabitQuestionRow, "id" | "habit_id" | "user_id" | "created_at" | "updated_at"> & { id?: string })[]
     }) => {
       if (!userId) throw new Error("Missing user");
 
       // Update habit details if provided
-      if (payload.name || payload.frequency_per_week !== undefined || payload.xp_per_completion !== undefined) {
+      if (payload.name || payload.frequency_per_week !== undefined || payload.xp_per_completion !== undefined || payload.time_of_day || payload.specific_time !== undefined) {
         const { error } = await supabase.from("habits").update({
           ...(payload.name ? { name: payload.name } : {}),
           ...(payload.frequency_per_week !== undefined ? { frequency_per_week: payload.frequency_per_week } : {}),
-          ...(payload.xp_per_completion !== undefined ? { xp_per_completion: payload.xp_per_completion } : {})
+          ...(payload.xp_per_completion !== undefined ? { xp_per_completion: payload.xp_per_completion } : {}),
+          ...(payload.time_of_day ? { time_of_day: payload.time_of_day } : {}),
+          ...(payload.specific_time !== undefined ? { specific_time: payload.specific_time } : {})
         } as never).eq("id", payload.habitId);
         if (error) throw new Error(error.message);
       }
@@ -155,13 +168,38 @@ export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: HABIT_QUERY_KEY });
+      pushToast("Habit Updated", `Changes to "${variables.name || 'habit'}" saved.`);
     }
   });
 
   const deleteHabit = useMutation({
     mutationFn: async (habitId: string) => {
+      // Archive to GitHub before deleting
+      const { data: habitToArchive } = await supabase.from("habits").select("*").eq("id", habitId).single();
+      const { data: questionsToArchive } = await supabase.from("habit_questions").select("*").eq("habit_id", habitId);
+
+      if (habitToArchive) {
+        try {
+          await fetch("/api/archive", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "habits",
+              subfolder: "deleted",
+              filename: `habit_${habitId}_${Date.now()}`,
+              payload: {
+                ...(habitToArchive as object),
+                questions: questionsToArchive || []
+              }
+            })
+          });
+        } catch (e) {
+          console.error("Failed to archive habit before deletion", e);
+        }
+      }
+
       // Delete associated XP events first
       await supabase.from("xp_events").delete().eq("source_id", habitId);
 
@@ -173,6 +211,7 @@ export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
       void queryClient.invalidateQueries({ queryKey: HABIT_QUERY_KEY });
       // Invalidate XP summary as events were removed
       void queryClient.invalidateQueries({ queryKey: ["xp-summary"] });
+      pushToast("Habit Deleted", "Habit and its history have been removed.");
     }
   });
 
@@ -202,13 +241,17 @@ export function useHabits(userId?: string, page = 1, limit = 10, search = "") {
         if (answersError) throw new Error(answersError.message);
       }
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: HABIT_QUERY_KEY });
+      pushToast("Habit Logged", `"${variables.habit.name}" completed for today!`);
 
       // Trigger achievement check
       if (userId) {
-        const { checkAndUnlockAchievements } = await import("@/lib/engines/achievementEngine");
-        checkAndUnlockAchievements(userId).catch(console.error);
+        fetch("/api/achievements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId })
+        }).catch(console.error);
       }
     }
   });

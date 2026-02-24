@@ -2,7 +2,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type NotificationInput = {
     userId: string;
-    type: "achievement" | "milestone" | "insight" | "vision" | "task" | "habit";
+    type: "achievement" | "milestone" | "insight" | "vision" | "task" | "habit" | "system";
     title: string;
     message: string;
     data?: Record<string, unknown>;

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { pushToast } from "@/components/ui/toast";
 import type { VisionNoteRow } from "@/lib/supabase/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -66,9 +67,10 @@ export function useNotes(userId: string | undefined, opts?: { archived?: boolean
             if (error) throw error;
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (data: VisionNoteRow) => {
             queryClient.invalidateQueries({ queryKey: ["notes", userId] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-metrics", userId] });
+            pushToast("Note Created", `"${data.title}" saved to vision.`);
         }
     });
 
@@ -100,15 +102,35 @@ export function useNotes(userId: string | undefined, opts?: { archived?: boolean
             }
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (data: VisionNoteRow) => {
             queryClient.invalidateQueries({ queryKey: ["notes", userId] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-metrics", userId] });
+            pushToast("Note Updated", `"${data.title}" has been updated.`);
         }
     });
 
     // Delete Mutation
     const deleteNote = useMutation({
         mutationFn: async (id: string) => {
+            // Archive to GitHub before deleting
+            const { data: noteToArchive } = await supabase.from("vision_notes").select("*").eq("id", id).single();
+            if (noteToArchive) {
+                try {
+                    await fetch("/api/archive", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            type: "notes",
+                            subfolder: "deleted",
+                            filename: `note_${id}_${Date.now()}`,
+                            payload: noteToArchive
+                        })
+                    });
+                } catch (e) {
+                    console.error("Failed to archive note before deletion", e);
+                }
+            }
+
             const { error } = await supabase
                 .from("vision_notes")
                 .delete()
@@ -119,6 +141,7 @@ export function useNotes(userId: string | undefined, opts?: { archived?: boolean
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["notes", userId] });
             queryClient.invalidateQueries({ queryKey: ["dashboard-metrics", userId] });
+            pushToast("Note Deleted", "The note has been removed.");
         }
     });
 

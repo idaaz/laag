@@ -53,10 +53,22 @@ export default function AnalyticsPage() {
     // Trigger achievement check and increment views
     useEffect(() => {
         if (user?.id) {
-            import("@/lib/engines/achievementEngine").then(({ checkAndUnlockAchievements, incrementAchievementProgress }) => {
-                incrementAchievementProgress(user.id, "analytics_views", 1).catch(console.error);
-                checkAndUnlockAchievements(user.id).catch(console.error);
-            });
+            // Securely increment analytics_views and check achievements via API
+            fetch("/api/achievements", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    action: "increment",
+                    metric: "analytics_views"
+                })
+            }).catch(console.error);
+
+            fetch("/api/achievements", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id })
+            }).catch(console.error);
         }
     }, [user?.id]);
 

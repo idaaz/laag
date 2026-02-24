@@ -46,6 +46,7 @@ export function PomodoroTimer({
     pause,
     stop,
     setSessionType,
+    setCustomDuration,
     addInterruption
   } = useTimer();
 
@@ -72,9 +73,11 @@ export function PomodoroTimer({
 
       // Trigger achievement check
       if (user?.id) {
-        import("@/lib/engines/achievementEngine").then(({ checkAndUnlockAchievements }) => {
-          checkAndUnlockAchievements(user.id).catch(console.error);
-        });
+        fetch("/api/achievements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id })
+        }).catch(console.error);
       }
     }
   }, [secondsLeft, running, baseDuration, sessionType, onCompleted, user?.id]);
@@ -143,11 +146,56 @@ export function PomodoroTimer({
           ))}
         </div>
 
-        <div className="space-y-2">
-          <p className="text-5xl font-mono font-semibold tracking-tight text-center tabular-nums">{mmss}</p>
-          <div className="h-2 w-full rounded-full bg-muted">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] uppercase font-bold border-primary/20 hover:border-primary/50"
+                onClick={() => setCustomDuration(25)}
+                disabled={running}
+              >
+                25m
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] uppercase font-bold border-primary/20 hover:border-primary/50"
+                onClick={() => setCustomDuration(50)}
+                disabled={running}
+              >
+                50m
+              </Button>
+            </div>
+            <div className="flex-1 max-w-[140px] space-y-1">
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase text-muted-foreground/70 mb-1">
+                <span>Custom</span>
+                <span className="text-primary">{Math.round(baseDuration / 60)}m</span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={60}
+                step={1}
+                value={Math.round(baseDuration / 60)}
+                onChange={(e) => setCustomDuration(Number(e.target.value))}
+                disabled={running}
+                className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary/80 transition-all opacity-80 hover:opacity-100"
+                aria-label="Custom duration (minutes)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 py-2">
+          <p className="text-6xl font-mono font-bold tracking-tight text-center tabular-nums text-foreground drop-shadow-sm">{mmss}</p>
+          <div className="h-2.5 w-full rounded-full bg-secondary/50 overflow-hidden border border-border/10">
             <div
-              className="h-2 rounded-full bg-primary transition-[width] duration-[300ms] linear motion-reduce:transition-none"
+              className={cn(
+                "h-full rounded-full transition-all duration-1000 ease-linear",
+                running ? "bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.4)]" : "bg-muted-foreground/30"
+              )}
               style={{ width: `${progress}%` }}
               role="progressbar"
               aria-valuemin={0}

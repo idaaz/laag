@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 
 type ToastMessage = {
   id: string;
@@ -28,8 +27,16 @@ export function pushToast(title: string, description?: string) {
   }, 3200);
 }
 
+import { createNotification } from "@/lib/engines/notificationEngine";
+import { useAuth } from "@/hooks/useAuth";
+import { useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+
 export function ToastViewport() {
   const [state, setState] = useState<ToastMessage[]>([]);
+  const { user } = useAuth();
+  const seenIds = useRef(new Set<string>());
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     listeners.push(setState);
@@ -38,30 +45,30 @@ export function ToastViewport() {
     };
   }, []);
 
-  return (
-    <div
-      className="pointer-events-none fixed bottom-4 right-4 z-[70] space-y-2"
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      {state.map((message) => (
-        <div
-          key={message.id}
-          className={cn(
-            "pointer-events-auto w-80 rounded-lg border p-3 shadow-lg micro-toast-enter",
-            message.variant === "warning" && "border-warning/50 bg-warning/10",
-            message.variant === "danger" && "border-destructive/50 bg-destructive/10",
-            message.variant === "success" && "border-success/50 bg-success/10",
-            (!message.variant || message.variant === "primary") && "border-primary/50 bg-primary/10"
-          )}
-        >
-          <p className="text-sm font-semibold">{message.title}</p>
-          {message.description ? (
-            <p className="text-xs text-muted-foreground">{message.description}</p>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
+  useEffect(() => {
+    if (!user) return;
+
+    let hasNew = false;
+    state.forEach(msg => {
+      if (!seenIds.current.has(msg.id)) {
+        seenIds.current.add(msg.id);
+        hasNew = true;
+        // Pipe into notification engine Instead of displaying toast
+        createNotification({
+          userId: user.id,
+          type: "system",
+          title: msg.title,
+          message: msg.description || "",
+        }).catch(console.error);
+      }
+    });
+
+    if (hasNew) {
+      // Invalidate notifications query to refresh the popover
+      queryClient.invalidateQueries({ queryKey: ["app_notifications"] });
+    }
+  }, [state, user, queryClient]);
+
+  // Return null because we no longer want the bottom-right banner
+  return null;
 }

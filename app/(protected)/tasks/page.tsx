@@ -17,6 +17,7 @@ import { TaskFilters } from "@/components/tasks/TaskFilters";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { KPIPanel } from "@/components/ui/KPIPanel";
+import { ArchiveViewerDialog } from "@/components/archive/ArchiveViewerDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
 
@@ -119,10 +120,13 @@ export default function TasksPage() {
                         title="Tasks"
                         description="Plan. Execute."
                         actions={
-                            <Button onClick={() => setOpenDialog(true)} className="hidden md:flex gap-2">
-                                <Plus className="h-4 w-4" />
-                                New
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <ArchiveViewerDialog type="tasks" />
+                                <Button onClick={() => setOpenDialog(true)} className="hidden md:flex gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    New
+                                </Button>
+                            </div>
                         }
                     />
                 }

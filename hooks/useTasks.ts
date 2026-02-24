@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOptimisticMutation } from "@/hooks/useOptimisticMutation";
 import { useXP } from "@/hooks/useXP";
+import { pushToast } from "@/components/ui/toast";
 import { persistReminder } from "@/lib/notifications/scheduler";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { TaskPriority, TaskRow } from "@/lib/supabase/types";
@@ -129,14 +130,34 @@ export function useTasks(userId?: string, page = 1, limit = 10) {
         count: (current?.count ?? 0) + 1
       };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: baseKey });
+      pushToast("Task Created", `"${data.title}" has been added to your list.`);
     }
   });
 
   const deleteTaskMutation = useOptimisticMutation<{ data: TaskRow[]; count: number }, string, void>({
     queryKey,
     mutationFn: async (taskId) => {
+      // Archive to GitHub before deleting
+      const { data: taskToArchive } = await supabase.from("tasks").select("*").eq("id", taskId).single();
+      if (taskToArchive) {
+        try {
+          await fetch("/api/archive", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "tasks",
+              subfolder: "deleted",
+              filename: `task_${taskId}_${Date.now()}`,
+              payload: taskToArchive
+            })
+          });
+        } catch (e) {
+          console.error("Failed to archive task before deletion", e);
+        }
+      }
+
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
     },
@@ -144,8 +165,9 @@ export function useTasks(userId?: string, page = 1, limit = 10) {
       data: (current?.data ?? []).filter((task) => task.id !== taskId),
       count: Math.max(0, (current?.count ?? 0) - 1)
     }),
-    onSuccess: () => {
+    onSuccess: (_, taskId) => {
       queryClient.invalidateQueries({ queryKey: baseKey });
+      pushToast("Task Deleted", "The task has been archived and removed.");
     }
   });
 
@@ -193,13 +215,18 @@ export function useTasks(userId?: string, page = 1, limit = 10) {
         count: current?.count ?? 0
       };
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: baseKey });
+
+      pushToast("Task Completed", `Great job! You finished "${data.title}".`);
 
       // Trigger achievement check
       if (userId) {
-        const { checkAndUnlockAchievements } = await import("@/lib/engines/achievementEngine");
-        checkAndUnlockAchievements(userId).catch(console.error);
+        fetch("/api/achievements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId })
+        }).catch(console.error);
       }
     }
   });

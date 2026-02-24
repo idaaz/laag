@@ -1,8 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { checkAndUnlockAchievements } from "@/lib/engines/achievementEngine";
 import type {
     AchievementDefinitionRow,
     AchievementRow,
@@ -23,36 +21,30 @@ export interface AchievementWithProgress extends AchievementDefinitionRow {
 }
 
 export function useAchievements(userId?: string) {
-    const supabase = getSupabaseBrowserClient();
-
     const achievementsQuery = useQuery({
         queryKey: [...ACHIEVEMENTS_QUERY_KEY, userId],
         enabled: !!userId,
         queryFn: async () => {
             if (!userId) throw new Error("Missing user");
 
-            const [definitions, unlockedData, progress] = await Promise.all([
-                supabase.from("achievement_definitions").select("*").order("display_order"),
-                supabase.from("achievements").select("*").eq("user_id", userId),
-                supabase.from("achievement_progress").select("*").eq("user_id", userId)
-            ]);
+            const res = await fetch(`/api/achievements?userId=${encodeURIComponent(userId)}`);
+            if (!res.ok) throw new Error("Failed to fetch achievements");
 
-            if (definitions.error) throw definitions.error;
-            if (unlockedData.error) throw unlockedData.error;
-            if (progress.error) throw progress.error;
+            const data = await res.json();
+            const { definitions, unlocked, progress } = data;
 
             const unlockedMap = new Map<string, AchievementRow>();
-            (unlockedData.data ?? []).forEach((a: AchievementRow) => {
+            (unlocked ?? []).forEach((a: AchievementRow) => {
                 unlockedMap.set(a.code, a);
             });
 
             const progressMap = new Map<string, AchievementProgressRow>();
-            (progress.data ?? []).forEach((p: AchievementProgressRow) => {
+            (progress ?? []).forEach((p: AchievementProgressRow) => {
                 progressMap.set(p.achievement_code, p);
             });
 
             const achievementsWithProgress: AchievementWithProgress[] = (
-                definitions.data ?? []
+                definitions ?? []
             ).map((def: AchievementDefinitionRow) => {
                 const unlockedAchievement = unlockedMap.get(def.code);
                 const progressData = progressMap.get(def.code);
@@ -85,16 +77,16 @@ export function useAchievements(userId?: string) {
                 {} as Record<AchievementCategory, AchievementWithProgress[]>
             );
 
-            const unlocked = achievementsWithProgress.filter((a) => a.isUnlocked);
-            const locked = achievementsWithProgress.filter((a) => !a.isUnlocked);
+            const unlockedItems = achievementsWithProgress.filter((a) => a.isUnlocked);
+            const lockedItems = achievementsWithProgress.filter((a) => !a.isUnlocked);
 
             return {
                 all: achievementsWithProgress,
-                unlocked,
-                locked,
+                unlocked: unlockedItems,
+                locked: lockedItems,
                 byCategory,
-                totalCount: definitions.data?.length ?? 0,
-                unlockedCount: unlocked.length
+                totalCount: definitions?.length ?? 0,
+                unlockedCount: unlockedItems.length
             };
         }
     });
@@ -107,9 +99,15 @@ export function useCheckAchievements() {
 
     return useMutation({
         mutationFn: async (userId: string) => {
-            return await checkAndUnlockAchievements(userId);
+            const res = await fetch("/api/achievements", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId })
+            });
+            if (!res.ok) throw new Error("Failed to check achievements");
+            return await res.json();
         },
-        onSuccess: (_newAchievements, userId) => {
+        onSuccess: (_data, userId) => {
             queryClient.invalidateQueries({ queryKey: [...ACHIEVEMENTS_QUERY_KEY, userId] });
             queryClient.invalidateQueries({ queryKey: ["xp_events"] });
         }

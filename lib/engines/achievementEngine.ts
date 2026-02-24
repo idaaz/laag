@@ -1,7 +1,8 @@
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 import type {
     AchievementRow,
-    AchievementDefinitionRow,
     AchievementProgressRow,
     TaskRow,
     HabitRow,
@@ -66,8 +67,7 @@ export interface UserStats {
 /**
  * Fetch user statistics for achievement checking
  */
-export async function getUserStats(userId: string): Promise<UserStats> {
-    const supabase = getSupabaseBrowserClient();
+export async function getUserStats(supabase: SupabaseClient<Database>, userId: string): Promise<UserStats> {
     const today = new Date().toISOString().slice(0, 10);
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -231,134 +231,164 @@ export function calculateProgress(condition: UnlockCondition, stats: UserStats):
 /**
  * Check and unlock achievements for a user
  */
-export async function checkAndUnlockAchievements(userId: string): Promise<AchievementRow[]> {
-    const supabase = getSupabaseBrowserClient();
+export async function checkAndUnlockAchievements(supabase: SupabaseClient<Database>, userId: string): Promise<AchievementRow[]> {
+    try {
+        // Fetch user stats
+        const stats = await getUserStats(supabase, userId);
 
-    // Fetch user stats
-    const stats = await getUserStats(userId);
+        const { data: definitions, error: defError } = await supabase
+            .from("achievement_definitions")
+            .select("*")
+            .order("display_order");
 
-    const { data: definitions, error: defError } = await supabase
-        .from("achievement_definitions")
-        .select("*")
-        .order("display_order");
-
-    if (defError || !definitions) {
-        console.error("Failed to fetch achievement definitions:", defError);
-        return [];
-    }
-
-    // Fetch user's already unlocked achievements
-    const { data: unlocked, error: unlockedError } = await supabase
-        .from("achievements")
-        .select("code")
-        .eq("user_id", userId);
-
-    if (unlockedError) {
-        console.error("Failed to fetch unlocked achievements:", unlockedError);
-        return [];
-    }
-
-    const unlockedCodes = new Set(((unlocked as unknown as AchievementRow[]) ?? []).map(a => a.code));
-    const newlyUnlocked: AchievementRow[] = [];
-
-    // Check each definition
-    for (const def of (definitions as unknown as AchievementDefinitionRow[]) || []) {
-        // Skip if already unlocked (unless repeatable)
-        if (unlockedCodes.has(def.code) && !def.is_repeatable) {
-            continue;
+        if (defError || !definitions) {
+            console.error("Failed to fetch achievement definitions:", defError);
+            return [];
         }
 
-        const condition = def.unlock_condition as unknown as UnlockCondition;
-        const isUnlocked = checkUnlockCondition(condition, stats);
+        // Fetch user's already unlocked achievements
+        const { data: unlocked, error: unlockedError } = await supabase
+            .from("achievements")
+            .select("code")
+            .eq("user_id", userId);
 
-        if (isUnlocked) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: newAchievement, error: insertError } = await (supabase.from("achievements") as any)
-                .insert({
+        if (unlockedError) {
+            console.error("Failed to fetch unlocked achievements:", unlockedError);
+            return [];
+        }
+
+        const unlockedCodes = new Set(((unlocked as any[]) ?? []).map(a => a.code));
+        const newlyUnlocked: AchievementRow[] = [];
+
+        // Check each definition
+        for (const def of (definitions as any[])) {
+            // Skip if already unlocked (unless repeatable)
+            if (unlockedCodes.has(def.code) && !def.is_repeatable) {
+                continue;
+            }
+
+            const condition = def.unlock_condition as unknown as UnlockCondition;
+            const isUnlocked = checkUnlockCondition(condition, stats);
+
+            if (isUnlocked) {
+                const insertData = {
+                    user_id: userId,
+                    code: def.code,
+                    title: def.title,
+                    description: def.description,
+                    unlocked_at: new Date().toISOString()
+                };
+
+                const { data: newAchievement, error: insertError } = await (supabase.from("achievements") as any)
+                    .insert(insertData)
+                    .select()
+                    .single();
+
+                if (!insertError && newAchievement) {
+                    newlyUnlocked.push(newAchievement as AchievementRow);
+
+                    // Create notification
+                    try {
+                        const { notifyAchievementUnlocked } = await import("@/lib/engines/notificationEngine");
+                        await notifyAchievementUnlocked(userId, def.title, def.tier);
+                    } catch (err) {
+                        console.error("Failed to send achievement notification:", err);
+                    }
+
+                    // Award XP
+                    const xpData = {
+                        user_id: userId,
+                        source_type: "achievement",
+                        source_id: (newAchievement as any).id,
+                        delta_xp: def.xp_reward,
+                        reason: `Achievement unlocked: ${def.title}`
+                    };
+                    await (supabase.from("xp_events") as any).insert(xpData);
+                } else if (insertError) {
+                    console.error("Failed to insert unlocked achievement:", insertError);
+                }
+            } else {
+                // Update progress
+                const progress = calculateProgress(condition, stats);
+                const upsertData = {
                     user_id: userId,
                     achievement_code: def.code,
-                    unlocked_at: new Date().toISOString()
-                })
-                .select()
-                .single();
-
-            if (!insertError && newAchievement) {
-                newlyUnlocked.push(newAchievement as AchievementRow);
-
-                // Create notification
-                const { notifyAchievementUnlocked } = await import("@/lib/engines/notificationEngine");
-                await notifyAchievementUnlocked(userId, def.title, def.tier);
-
-                // Award XP
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await (supabase.from("xp_events") as any).insert({
-                    user_id: userId,
-                    source_type: "achievement",
-                    source_id: newAchievement.id,
-                    delta_xp: def.xp_reward,
-                    reason: `Achievement unlocked: ${def.title}`
+                    current_value: progress.current,
+                    target_value: progress.target,
+                    last_updated: new Date().toISOString()
+                };
+                await (supabase.from("achievement_progress") as any).upsert(upsertData, {
+                    onConflict: 'user_id,achievement_code'
                 });
             }
-        } else {
-            // Update progress
-            const progress = calculateProgress(condition, stats);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase.from("achievement_progress") as any).upsert({
-                user_id: userId,
-                achievement_code: def.code,
-                current_value: progress.current,
-                target_value: progress.target,
-                last_updated: new Date().toISOString()
-            }, {
-                onConflict: 'user_id,achievement_code'
-            });
         }
-    }
 
-    return newlyUnlocked;
+        return newlyUnlocked;
+    } catch (error) {
+        console.error("Error in checkAndUnlockAchievements:", error);
+        throw error;
+    }
 }
 
 /**
  * Increment progress for a specific achievement metric
  */
-export async function incrementAchievementProgress(userId: string, metric: string, amount = 1) {
-    const supabase = getSupabaseBrowserClient();
+export async function incrementAchievementProgress(supabase: SupabaseClient<Database>, userId: string, metric: string, amount = 1) {
+    try {
+        // Fetch all definitions that use this metric
+        const { data: definitions, error: defError } = await supabase
+            .from("achievement_definitions")
+            .select("code, unlock_condition");
 
-    // Find all achievement definitions that use this metric
-    const { data: definitions } = await (supabase
-        .from("achievement_definitions") as unknown as { select: (s: string) => { filter: (f: string, o: string, v: string) => Promise<{ data: Array<{ code: string; unlock_condition: unknown }> }> } })
-        .select("code, unlock_condition")
-        .filter("unlock_condition->>metric", "eq", metric);
+        if (defError || !definitions) {
+            console.error("Failed to fetch definitions for increment:", defError);
+            return;
+        }
 
-    if (!definitions) return;
-
-    for (const def of definitions) {
-        const condition = def.unlock_condition as unknown as UnlockCondition;
-
-        // Upsert progress
-        const { data: currentProgress } = await (supabase
-            .from("achievement_progress") as unknown as { select: (s: string) => { eq: (f: string, v: unknown) => { eq: (f: string, v: unknown) => { single: () => Promise<{ data: { current_value: number } | null }> } } } })
-            .select("current_value")
-            .eq("user_id", userId)
-            .eq("achievement_code", def.code)
-            .single();
-
-        const currentValue = (currentProgress?.current_value ?? 0) + amount;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("achievement_progress") as any).upsert({
-            user_id: userId,
-            achievement_code: def.code,
-            current_value: currentValue,
-            target_value: condition.target,
-            last_updated: new Date().toISOString()
-        }, {
-            onConflict: 'user_id,achievement_code'
+        // Filter definitions that match the metric in their unlock_condition
+        const matchingDefs = (definitions as any[]).filter(def => {
+            const cond = def.unlock_condition as any;
+            return cond && cond.metric === metric;
         });
 
-        // Check if it's now unlocked
-        if (currentValue >= condition.target) {
-            await checkAndUnlockAchievements(userId);
+        for (const def of matchingDefs) {
+            const condition = def.unlock_condition as unknown as UnlockCondition;
+
+            // Get current progress
+            const { data: currentProgress } = await supabase
+                .from("achievement_progress")
+                .select("current_value")
+                .eq("user_id", userId)
+                .eq("achievement_code", def.code)
+                .maybeSingle();
+
+            const currentValue = ((currentProgress as any)?.current_value ?? 0) + amount;
+
+            // Upsert new progress
+            const upsertData = {
+                user_id: userId,
+                achievement_code: def.code,
+                current_value: currentValue,
+                target_value: condition.target,
+                last_updated: new Date().toISOString()
+            };
+
+            const { error: upsertError } = await (supabase.from("achievement_progress") as any).upsert(upsertData, {
+                onConflict: 'user_id,achievement_code'
+            });
+
+            if (upsertError) {
+                console.error("Failed to upsert achievement progress:", upsertError);
+                continue;
+            }
+
+            // Check if it's now unlocked
+            if (currentValue >= condition.target) {
+                await checkAndUnlockAchievements(supabase, userId);
+            }
         }
+    } catch (error) {
+        console.error("Error in incrementAchievementProgress:", error);
+        throw error;
     }
 }

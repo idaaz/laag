@@ -4,14 +4,15 @@ import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type CompactListItemProps = {
-  label: string;
-  meta?: string;
+interface CompactListItemProps {
   icon?: ReactNode;
+  label: string;
+  meta?: ReactNode;
   controls?: ReactNode;
   selected?: boolean;
   onClick?: () => void;
-};
+  className?: string;
+}
 
 export function CompactListItem({
   label,

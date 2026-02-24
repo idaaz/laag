@@ -1,104 +1,408 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            width: 320px;
-            padding: 16px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: #09090b;
-            color: #fafafa;
-            margin: 0;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-bottom: 1px solid #27272a;
-            padding-bottom: 8px;
-        }
-        .logo { color: #3b82f6; font-weight: bold; font-family: monospace; }
-        .title { font-size: 16px; font-weight: 600; }
-        
-        .field { display: flex; flex-direction: column; gap: 6px; }
-        label { font-size: 12px; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em; }
-        input {
-            background: #18181b;
-            border: 1px solid #27272a;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            outline: none;
-        }
-        input:focus { border-color: #3b82f6; }
-        
-        button {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 8px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        button:hover { opacity: 0.9; }
-        button:disabled { background: #27272a; cursor: not-allowed; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LAAG KPI Monitor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-        .status {
-            font-size: 12px;
-            padding: 8px;
-            border-radius: 4px;
-            text-align: center;
-        }
-        .status.connected { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
-        .status.disconnected { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+    body {
+      width: 360px;
+      min-height: 480px;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      background: #09090b;
+      color: #fafafa;
+    }
 
-        .history {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .history-item {
-            font-size: 11px;
-            padding: 6px;
-            background: #18181b;
-            border-radius: 4px;
-            border-left: 2px solid #3b82f6;
-        }
-        .history-url { color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .history-title { font-weight: 500; margin-bottom: 2px; }
-    </style>
+    /* ── Header ────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(20, 184, 166, 0.05) 100%);
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #3b82f6, #14b8a6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 900;
+      color: #fff;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-sub {
+      font-size: 9px;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 0px;
+    }
+
+    .status-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .status-pill.ok {
+      background: rgba(34, 197, 94, 0.12);
+      color: #4ade80;
+    }
+
+    .status-pill.error {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+    }
+
+    .status-pill.loading {
+      background: rgba(234, 179, 8, 0.12);
+      color: #facc15;
+    }
+
+    /* ── Setup Screen ───────────────────────────────────── */
+    .setup-screen {
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .setup-screen p {
+      font-size: 12px;
+      color: #71717a;
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: 11px;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input {
+      width: 100%;
+      background: #18181b;
+      border: 1px solid #27272a;
+      color: #fafafa;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      border-color: #3b82f6;
+    }
+
+    button {
+      width: 100%;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      border: none;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid #27272a;
+      color: #a1a1aa;
+      font-size: 11px;
+      padding: 6px;
+    }
+
+    /* ── Dashboard ─────────────────────────────────────── */
+    .dashboard {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .kpi-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .kpi-label {
+      font-size: 9px;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .kpi-value {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .kpi-sub {
+      font-size: 9px;
+      color: #52525b;
+    }
+
+    .kpi-blue {
+      color: #60a5fa;
+    }
+
+    .kpi-teal {
+      color: #2dd4bf;
+    }
+
+    .kpi-gold {
+      color: #fbbf24;
+    }
+
+    .kpi-red {
+      color: #f87171;
+    }
+
+    .kpi-green {
+      color: #4ade80;
+    }
+
+    .kpi-indigo {
+      color: #818cf8;
+    }
+
+    /* Domains List */
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #52525b;
+      padding: 4px 0 2px;
+    }
+
+    .domain-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .domain-row:last-child {
+      border-bottom: none;
+    }
+
+    .domain-name {
+      font-size: 12px;
+      color: #d4d4d8;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .domain-bar-wrap {
+      width: 60px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 2px;
+      margin: 0 8px;
+      flex-shrink: 0;
+    }
+
+    .domain-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #3b82f6, #14b8a6);
+    }
+
+    .domain-pct {
+      font-size: 10px;
+      color: #71717a;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: right;
+    }
+
+    /* Categories pills */
+    .categories-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .cat-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #a1a1aa;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 8px 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-time {
+      font-size: 10px;
+      color: #3f3f46;
+    }
+
+    .loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      gap: 12px;
+      color: #52525b;
+      font-size: 12px;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid rgba(59, 130, 246, 0.2);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="header">
-            <span class="logo">///</span>
-            <span class="title">LAAG Tracker</span>
-        </div>
-
-        <div id="status" class="status disconnected">Not Configured</div>
-
-        <div class="field">
-            <label for="userId">User ID</label>
-            <input type="text" id="userId" placeholder="Enter your User ID from LAAG settings">
-            <button id="saveBtn">Save & Connect</button>
-        </div>
-
-        <div class="history">
-            <label>Recent Activity</label>
-            <div id="historyList">
-                <div style="font-size: 11px; color: #71717a; text-align: center; padding: 10px;">No recent activity</div>
-            </div>
-        </div>
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-area">
+      <div class="logo-dot">L</div>
+      <div>
+        <div class="logo-text">LAAG</div>
+        <select id="kpiCategory"
+          style="background:transparent; border:none; color:#71717a; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; outline:none; cursor:pointer;">
+          <option value="summary">Summary</option>
+          <option value="tasks">Tasks</option>
+          <option value="habits">Habits</option>
+          <option value="tracking">Tracking</option>
+          <option value="logs">Daily Logs</option>
+        </select>
+      </div>
     </div>
-    <script src="popup.js"></script>
+    <div id="statusPill" class="status-pill loading">Connecting…</div>
+  </div>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="setup-screen hidden">
+    <p>Enter your LAAG User ID to connect.<br>Find it in LAAG → Settings → Account.</p>
+    <div>
+      <label for="userIdInput">User ID</label>
+      <input type="text" id="userIdInput" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+    </div>
+    <div>
+      <label for="appUrlInput">App URL (optional)</label>
+      <input type="text" id="appUrlInput" placeholder="https://your-app.vercel.app">
+    </div>
+    <button id="connectBtn">Connect to LAAG</button>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingScreen" class="loading-spinner hidden">
+    <div class="spinner"></div>
+    <span>Fetching KPIs…</span>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboardScreen" class="dashboard hidden">
+    <!-- Dynamic Content Area -->
+    <div id="kpiContent" class="space-y-4">
+      <!-- Content injected via JS -->
+    </div>
+
+    <!-- Always visible tracking highlights (if on tracking or summary) -->
+    <div id="trackingHighlights" class="hidden">
+      <div class="section-title">Top Domains</div>
+      <div id="domainsList"></div>
+      <div class="section-title">Categories</div>
+      <div id="categoriesList" class="categories-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-time" id="lastUpdated">Never updated</span>
+    <button class="secondary" id="settingsBtn" style="width:auto;padding:4px 10px;">⚙ Settings</button>
+  </div>
+
+  <script src="popup.js"></script>
 </body>
+
 </html>

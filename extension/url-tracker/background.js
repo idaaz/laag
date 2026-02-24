@@ -213,3 +213,50 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
     }
 });
 
+
+// 5. Anti-X-Frame & CSP Bypass for In-App Browser
+const RULE_ID = 1;
+
+async function setupHeaderStrippingRules() {
+    console.log("URL Tracker: Initializing header-stripping rules...");
+    try {
+        const rules = [
+            {
+                id: RULE_ID,
+                priority: 1,
+                action: {
+                    type: "modifyHeaders",
+                    responseHeaders: [
+                        { header: "X-Frame-Options", operation: "remove" },
+                        { header: "Content-Security-Policy", operation: "remove" },
+                        { header: "Frame-Options", operation: "remove" }
+                    ]
+                },
+                condition: {
+                    resourceTypes: ["sub_frame"]
+                }
+            }
+        ];
+
+        // Replace any existing rules with this set
+        await chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: [RULE_ID],
+            addRules: rules
+        });
+        console.log("URL Tracker: Header-stripping rules active.");
+    } catch (e) {
+        console.error("URL Tracker: Failed to set up header-stripping rules", e);
+    }
+}
+
+// Setup on startup and install
+chrome.runtime.onInstalled.addListener(() => {
+    setupHeaderStrippingRules();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+    setupHeaderStrippingRules();
+});
+
+// Also run immediately in case it just loaded
+setupHeaderStrippingRules();

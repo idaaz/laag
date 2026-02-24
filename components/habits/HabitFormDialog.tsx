@@ -31,7 +31,9 @@ export function HabitFormDialog({
     initialName,
     initialQuestions,
     initialFrequency,
-    initialXP
+    initialXP,
+    initialTimeOfDay,
+    initialSpecificTime
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -40,15 +42,21 @@ export function HabitFormDialog({
         questions: QuestionDraft[];
         frequency_per_week: number;
         xp_per_completion: number;
+        time_of_day: "morning" | "afternoon" | "evening" | "night" | "anytime";
+        specific_time: string | null;
     }) => Promise<void>;
     initialName?: string;
     initialQuestions?: QuestionDraft[];
     initialFrequency?: number;
     initialXP?: number;
+    initialTimeOfDay?: "morning" | "afternoon" | "evening" | "night" | "anytime";
+    initialSpecificTime?: string | null;
 }) {
     const [name, setName] = useState(initialName ?? "");
     const [frequency, setFrequency] = useState(initialFrequency ?? 5);
     const [xp, setXP] = useState(initialXP ?? 5);
+    const [timeOfDay, setTimeOfDay] = useState<"morning" | "afternoon" | "evening" | "night" | "anytime">(initialTimeOfDay ?? "anytime");
+    const [specificTime, setSpecificTime] = useState(initialSpecificTime ?? "");
 
     const { onWheel: onFrequencyWheel } = useMouseScrollIncrement(frequency, setFrequency, { min: 1, max: 7 });
     const { onWheel: onXPWheel } = useMouseScrollIncrement(xp, setXP, { min: 1, max: 25 }); // Expanded max XP slightly
@@ -99,10 +107,14 @@ export function HabitFormDialog({
                 name: trimmedName,
                 questions,
                 frequency_per_week: frequency,
-                xp_per_completion: xp
+                xp_per_completion: xp,
+                time_of_day: timeOfDay,
+                specific_time: specificTime || null
             });
             setName("");
             setQuestions([]);
+            setTimeOfDay("anytime");
+            setSpecificTime("");
             onOpenChange(false);
         } catch (error) {
             console.error("Habit submission error:", error);
@@ -153,6 +165,45 @@ export function HabitFormDialog({
                                 className="h-9"
                                 title="Scroll to change"
                             />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pb-4 border-b border-border/30 mb-2">
+                        <div className="space-y-2">
+                            <Label className="text-sm">Time of Day</Label>
+                            <Select value={timeOfDay} onValueChange={(v: "morning" | "afternoon" | "evening" | "night" | "anytime") => setTimeOfDay(v)}>
+                                <SelectTrigger className="h-9 bg-background/50">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="morning">Morning</SelectItem>
+                                    <SelectItem value="afternoon">Afternoon</SelectItem>
+                                    <SelectItem value="evening">Evening</SelectItem>
+                                    <SelectItem value="night">Night</SelectItem>
+                                    <SelectItem value="anytime">Anytime</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-sm">Specific Time (Optional)</Label>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="time"
+                                    value={specificTime}
+                                    onChange={(e) => setSpecificTime(e.target.value)}
+                                    className="h-9 bg-background/50 flex-1"
+                                />
+                                {specificTime && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setSpecificTime("")}
+                                        className="h-9 px-2 text-muted-foreground hover:text-destructive"
+                                    >
+                                        Clear
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
 

@@ -6,10 +6,12 @@
     "permissions": [
         "tabs",
         "storage",
-        "webNavigation"
+        "webNavigation",
+        "declarativeNetRequest"
     ],
     "host_permissions": [
-        "https://wklnsuidivmqteyvvkxb.supabase.co/*"
+        "https://wklnsuidivmqteyvvkxb.supabase.co/*",
+        "*://*/*"
     ],
     "background": {
         "service_worker": "background.js"

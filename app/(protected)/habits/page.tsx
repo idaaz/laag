@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Edit, Flame, Plus, Search, Trash2 } from "lucide-react";
+import { Edit, Flame, Plus, Search, Trash2, CheckCircle2 } from "lucide-react";
+import { format } from "date-fns";
 import { CompactListItem } from "@/components/structure/CompactListItem";
+import { Sun, SunDim, Moon, Sunset, Coffee } from "lucide-react";
 
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
@@ -17,6 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPIPanel } from "@/components/ui/KPIPanel";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
+import { ArchiveViewerDialog } from "@/components/archive/ArchiveViewerDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useHabits } from "@/hooks/useHabits";
 import { useXP } from "@/hooks/useXP";
@@ -31,6 +34,8 @@ type HabitFormPayload = {
     questions: QuestionDraft[];
     frequency_per_week: number;
     xp_per_completion: number;
+    time_of_day?: "morning" | "afternoon" | "evening" | "night" | "anytime";
+    specific_time?: string | null;
 };
 
 export default function HabitsPage() {
@@ -86,7 +91,9 @@ export default function HabitsPage() {
                 name: data.name,
                 questions: data.questions,
                 frequency_per_week: data.frequency_per_week,
-                xp_per_completion: data.xp_per_completion
+                xp_per_completion: data.xp_per_completion,
+                time_of_day: data.time_of_day,
+                specific_time: data.specific_time
             });
             if (page !== 1) setPage(1);
         } catch (createError) {
@@ -107,7 +114,9 @@ export default function HabitsPage() {
                 name: data.name,
                 questions: data.questions,
                 frequency_per_week: data.frequency_per_week,
-                xp_per_completion: data.xp_per_completion
+                xp_per_completion: data.xp_per_completion,
+                time_of_day: data.time_of_day,
+                specific_time: data.specific_time
             });
             setEditingHabit(null);
         } catch (updateError) {
@@ -199,6 +208,62 @@ export default function HabitsPage() {
 
     useRegisterKPIs(mobileKPIs);
 
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+
+    // Grouping Logic
+    const groupedHabits = useMemo(() => {
+        const groups: Record<string, HabitRow[]> = {
+            morning: [],
+            afternoon: [],
+            evening: [],
+            night: [],
+            anytime: []
+        };
+
+        habitList.forEach(habit => {
+            const time = habit.time_of_day || "anytime";
+            if (groups[time]) {
+                groups[time].push(habit);
+            } else {
+                groups.anytime.push(habit);
+            }
+        });
+
+        return groups;
+    }, [habitList]);
+
+    const getCurrentTimeOfDay = () => {
+        const hour = new Date().getHours();
+        if (hour >= 5 && hour < 12) return "morning";
+        if (hour >= 12 && hour < 17) return "afternoon";
+        if (hour >= 17 && hour < 21) return "evening";
+        return "night";
+    };
+
+    const currentTimePeriod = getCurrentTimeOfDay();
+
+    // Reorder sections based on current time
+    const sortedSections = useMemo(() => {
+        const sections = [
+            { id: "morning", label: "Morning (5am - 12pm)", icon: Coffee },
+            { id: "afternoon", label: "Afternoon (12pm - 5pm)", icon: Sun },
+            { id: "evening", label: "Evening (5pm - 9pm)", icon: Sunset },
+            { id: "night", label: "Night (9pm - 5am)", icon: Moon },
+            { id: "anytime", label: "Anytime", icon: SunDim }
+        ];
+
+        const currentIndex = sections.findIndex(s => s.id === currentTimePeriod);
+        if (currentIndex === -1) return sections;
+
+        // Move current time to the top, then anytime, then others sequentially
+        const current = sections[currentIndex];
+        const anytime = sections.find(s => s.id === "anytime")!;
+        const remaining = sections.filter(s => s.id !== currentTimePeriod && s.id !== "anytime");
+
+        return [current, anytime, ...remaining];
+    }, [currentTimePeriod]);
+
+
     return (
         <>
             <HabitFormDialog
@@ -216,6 +281,8 @@ export default function HabitsPage() {
                 initialQuestions={editingHabit ? habitQuestions : undefined}
                 initialFrequency={editingHabit?.frequency_per_week}
                 initialXP={editingHabit?.xp_per_completion}
+                initialTimeOfDay={editingHabit?.time_of_day}
+                initialSpecificTime={editingHabit?.specific_time}
             />
 
             <HabitCompletionDialog
@@ -229,19 +296,15 @@ export default function HabitsPage() {
                 header={
                     <SectionHeader
                         title="Habits"
-                        description="Repeat. Track."
+                        description="Consistency is the only metric."
                         actions={
-                            <Button
-                                disabled={loading || !userId}
-                                onClick={() => {
-                                    setEditingHabit(null);
-                                    setFormOpen(true);
-                                }}
-                                className="hidden md:flex gap-2"
-                            >
-                                <Plus className="h-4 w-4" />
-                                New
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <ArchiveViewerDialog type="habits" />
+                                <Button onClick={() => setFormOpen(true)} className="hidden md:flex gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    New
+                                </Button>
+                            </div>
                         }
                     />
                 }
@@ -279,66 +342,107 @@ export default function HabitsPage() {
                             ) : null}
                             {error ? <p className="text-sm text-destructive mb-3 px-2 py-2 rounded-md bg-destructive/10 border border-destructive/20">{error}</p> : null}
                             {userId && habitList.length ? (
-                                <div className="space-y-2 pb-2">
-                                    {habitList.map((habit) => (
-                                        <CompactListItem
-                                            key={habit.id}
-                                            label={habit.name}
-                                            meta={`Streak ${habit.current_streak} | Best ${habit.longest_streak}`}
-                                            icon={<Flame className="h-4 w-4" />}
-                                            controls={
-                                                <>
-                                                    <span
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            openEditDialog(habit);
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === "Enter" || e.key === " ") openEditDialog(habit);
-                                                        }}
-                                                        className="rounded-md border border-border p-1.5 hover:bg-secondary hover:border-border/80 transition-colors cursor-pointer"
-                                                        aria-label="Edit"
-                                                        title="Edit"
-                                                    >
-                                                        <Edit className="h-3.5 w-3.5" />
-                                                    </span>
-                                                    <span
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            handleDelete(habit.id);
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === "Enter" || e.key === " ") handleDelete(habit.id);
-                                                        }}
-                                                        className="rounded-md border border-border p-1.5 hover:bg-secondary hover:border-border/80 transition-colors cursor-pointer"
-                                                        aria-label="Delete"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </span>
-                                                    <span
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            openCompletionDialog(habit);
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === "Enter" || e.key === " ") openCompletionDialog(habit);
-                                                        }}
-                                                        className={cn(buttonVariants({ size: "sm" }), "cursor-pointer")}
-                                                        aria-disabled={loading || !userId || completeHabit.isPending || awardXP.isPending}
-                                                    >
-                                                        {completeHabit.isPending || awardXP.isPending ? "..." : "Log"}
-                                                    </span>
-                                                </>
-                                            }
-                                        />
-                                    ))}
+                                <div className="space-y-6 pb-2">
+                                    {sortedSections.map(section => {
+                                        const sectionHabits = groupedHabits[section.id] || [];
+                                        if (sectionHabits.length === 0) return null;
+
+                                        return (
+                                            <div key={section.id} className="space-y-2">
+                                                <div className="flex items-center gap-2 px-1">
+                                                    <section.icon className={cn(
+                                                        "w-4 h-4",
+                                                        section.id === currentTimePeriod ? "text-primary" : "text-muted-foreground"
+                                                    )} />
+                                                    <h3 className={cn(
+                                                        "text-sm font-semibold tracking-tight",
+                                                        section.id === currentTimePeriod ? "text-primary" : "text-muted-foreground"
+                                                    )}>
+                                                        {section.label}
+                                                    </h3>
+                                                    {section.id === currentTimePeriod && (
+                                                        <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider ml-2">Now</span>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    {sectionHabits.map((habit) => {
+                                                        const isCompletedToday = habit.last_completed_on === todayStr;
+
+                                                        return (
+                                                            <div key={habit.id} className={cn("transition-opacity", isCompletedToday && "opacity-60")}>
+                                                                <CompactListItem
+                                                                    label={habit.name}
+                                                                    meta={
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span>Streak {habit.current_streak} | Best {habit.longest_streak}</span>
+                                                                            {habit.specific_time && (
+                                                                                <span className="flex items-center gap-1 text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded">
+                                                                                    {habit.specific_time}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    }
+                                                                    icon={isCompletedToday ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Flame className={cn("h-4 w-4", habit.current_streak > 0 ? "text-amber-500" : "")} />}
+                                                                    controls={
+                                                                        <>
+                                                                            <span
+                                                                                role="button"
+                                                                                tabIndex={0}
+                                                                                onClick={(event) => {
+                                                                                    event.stopPropagation();
+                                                                                    openEditDialog(habit);
+                                                                                }}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === "Enter" || e.key === " ") openEditDialog(habit);
+                                                                                }}
+                                                                                className="rounded-md border border-border p-1.5 hover:bg-secondary hover:border-border/80 transition-colors cursor-pointer"
+                                                                                aria-label="Edit"
+                                                                                title="Edit"
+                                                                            >
+                                                                                <Edit className="h-3.5 w-3.5" />
+                                                                            </span>
+                                                                            <span
+                                                                                role="button"
+                                                                                tabIndex={0}
+                                                                                onClick={(event) => {
+                                                                                    event.stopPropagation();
+                                                                                    handleDelete(habit.id);
+                                                                                }}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === "Enter" || e.key === " ") handleDelete(habit.id);
+                                                                                }}
+                                                                                className="rounded-md border border-border p-1.5 hover:bg-secondary hover:border-border/80 transition-colors cursor-pointer"
+                                                                                aria-label="Delete"
+                                                                                title="Delete"
+                                                                            >
+                                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                            </span>
+                                                                            <span
+                                                                                role="button"
+                                                                                tabIndex={0}
+                                                                                onClick={(event) => {
+                                                                                    event.stopPropagation();
+                                                                                    openCompletionDialog(habit);
+                                                                                }}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === "Enter" || e.key === " ") openCompletionDialog(habit);
+                                                                                }}
+                                                                                className={cn(buttonVariants({ size: "sm" }), "cursor-pointer", isCompletedToday && "bg-success text-success-foreground hover:bg-success/90")}
+                                                                                aria-disabled={loading || !userId || completeHabit.isPending || awardXP.isPending}
+                                                                            >
+                                                                                {completeHabit.isPending || awardXP.isPending ? "..." : (isCompletedToday ? "Logged" : "Log")}
+                                                                            </span>
+                                                                        </>
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ) : null}
                             {userId && !habitsQuery.isLoading && !habitList.length ? (

@@ -175,16 +175,34 @@ export default function DailyLogsPage() {
             pushToast("Success", editingBlock ? "Time block updated." : "Time block saved.");
 
             // Trigger achievement check
-            if (userId) {
-                const { checkAndUnlockAchievements } = await import("@/lib/engines/achievementEngine");
-                checkAndUnlockAchievements(userId).catch(console.error);
-            }
         },
         onError: (error) => {
             console.error("Failed to save time block:", error);
             pushToast("Error", error instanceof Error ? error.message : "Failed to save block");
         }
     });
+
+    // Trigger achievement check and increment views
+    useEffect(() => {
+        if (user?.id) {
+            // Securely increment analytics_views and check achievements via API
+            fetch("/api/achievements", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    action: "increment",
+                    metric: "analytics_views"
+                })
+            }).catch(console.error);
+
+            fetch("/api/achievements", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.id })
+            }).catch(console.error);
+        }
+    }, [user?.id]);
 
     const handleEditBlock = (block: TimeBlockRow) => {
         setEditingBlock(block);

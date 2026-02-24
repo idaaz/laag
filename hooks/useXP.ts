@@ -65,10 +65,13 @@ export function useXP(userId?: string) {
       void queryClient.invalidateQueries({ queryKey: ["xp_summary"] });
       void queryClient.invalidateQueries({ queryKey: ["xp_events"] });
 
-      // Trigger achievement check
+      // Trigger achievement check for habit creation
       if (userId) {
-        const { checkAndUnlockAchievements } = await import("@/lib/engines/achievementEngine");
-        checkAndUnlockAchievements(userId).catch(console.error);
+        fetch("/api/achievements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId })
+        }).catch(console.error);
       }
     }
   });

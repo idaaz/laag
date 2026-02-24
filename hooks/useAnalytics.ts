@@ -58,8 +58,22 @@ export function useAnalytics(userId?: string, range: AnalyticsRange = "30d") {
       if (xpDaily.error) throw xpDaily.error;
       if (logs.error) throw logs.error;
       if (snapshots.error) throw snapshots.error;
+
+      // Fetch GitHub archived daily logs
+      let githubLogs: any[] = [];
+      try {
+        const res = await fetch(`/api/archive?type=daily_logs`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) {
+            githubLogs = json.data.flat().filter((row: any) => row.log_date >= start);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch archived daily logs", e);
+      }
       const xpDailyRows = (xpDaily.data ?? []) as Array<{ created_at: string; delta_xp: number }>;
-      const logRows = (logs.data ?? []) as Array<{
+      const supabaseLogRows = (logs.data ?? []) as Array<{
         log_date: string;
         study_minutes: number;
         workout_minutes: number;
@@ -69,6 +83,12 @@ export function useAnalytics(userId?: string, range: AnalyticsRange = "30d") {
         productivity: number;
       }>;
       const snapshotRows = (snapshots.data ?? []) as Array<{ snapshot_date: string; score: number }>;
+
+      // Deduplicate and merge logs favoring Supabase for more recent data
+      const mergedLogsMap = new Map<string, any>();
+      githubLogs.forEach(l => mergedLogsMap.set(l.log_date, l));
+      supabaseLogRows.forEach(l => mergedLogsMap.set(l.log_date, l));
+      const logRows = Array.from(mergedLogsMap.values()).sort((a, b) => a.log_date.localeCompare(b.log_date));
 
       const map = new Map<string, number>();
       xpDailyRows.forEach((row) => {

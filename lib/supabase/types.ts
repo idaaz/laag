@@ -88,6 +88,8 @@ export type HabitRow = {
   last_completed_on: string | null;
   relapse_count: number;
   is_active: boolean;
+  time_of_day: "morning" | "afternoon" | "evening" | "night" | "anytime";
+  specific_time: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -131,6 +133,7 @@ export type VisitedUrlRow = {
   url: string;
   title: string | null;
   visited_at: string;
+  is_in_app: boolean;
   created_at: string;
 };
 
@@ -357,6 +360,22 @@ export type AppNotificationRow = {
   created_at: string;
 };
 
+export type TrackingCategoryRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;
+  created_at: string;
+};
+
+export type TrackingDomainCategoryRow = {
+  id: string;
+  user_id: string;
+  domain: string;
+  category_id: string;
+  created_at: string;
+};
+
 type InsertWithoutGenerated<T> = Omit<T, "id" | "created_at" | "updated_at"> & {
   id?: string;
   created_at?: string;
@@ -442,6 +461,16 @@ export type Database = {
         AppNotificationRow,
         InsertWithoutGenerated<AppNotificationRow>,
         Partial<AppNotificationRow>
+      >;
+      tracking_categories: TableShape<
+        TrackingCategoryRow,
+        InsertWithoutGenerated<TrackingCategoryRow>,
+        Partial<TrackingCategoryRow>
+      >;
+      tracking_domain_categories: TableShape<
+        TrackingDomainCategoryRow,
+        InsertWithoutGenerated<TrackingDomainCategoryRow>,
+        Partial<TrackingDomainCategoryRow>
       >;
     };
     Enums: {

@@ -31,6 +31,7 @@ type TimerActions = {
     pause: () => void;
     stop: () => void;
     setSessionType: (type: DashboardSessionType) => void;
+    setCustomDuration: (minutes: number) => void;
     setActiveTask: (taskId: string | null, title?: string) => void;
     addInterruption: () => void;
 };
@@ -140,6 +141,17 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         }));
     }, []);
 
+    const setCustomDuration = useCallback((minutes: number) => {
+        const duration = minutes * 60;
+        setState((prev) => ({
+            ...prev,
+            baseDuration: duration,
+            secondsLeft: duration,
+            running: false,
+            interruptions: 0
+        }));
+    }, []);
+
     const setActiveTask = useCallback((taskId: string | null, title?: string) => {
         setState(prev => ({ ...prev, activeTaskId: taskId, activeTaskTitle: title || null }));
     }, []);
@@ -155,6 +167,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         pause,
         stop,
         setSessionType,
+        setCustomDuration,
         setActiveTask,
         addInterruption
     };

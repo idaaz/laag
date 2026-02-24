@@ -262,9 +262,30 @@ export default function DashboardPage() {
             if (timeBlocks.error) throw timeBlocks.error;
             if (xpEvents.error) throw xpEvents.error;
 
+            // Fetch GitHub archived daily logs
+            let githubLogs: DailyLogRow[] = [];
+            try {
+                const res = await fetch(`/api/archive?type=daily_logs`);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.data) {
+                        githubLogs = (json.data as DailyLogRow[][]).flat().filter((row) => row.log_date >= weekAgo);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch archived daily logs", e);
+            }
+
             const taskRows = (tasks.data ?? []) as TaskRow[];
             const habitRows = (habits.data ?? []) as HabitRow[];
-            const dailyLogRows = (dailyLogs.data ?? []) as DailyLogRow[];
+
+            // Deduplicate and merge logs favoring Supabase for more recent data
+            const supabaseLogRows = (dailyLogs.data ?? []) as DailyLogRow[];
+            const mergedLogsMap = new Map<string, DailyLogRow>();
+            githubLogs.forEach(l => mergedLogsMap.set(l.log_date, l));
+            supabaseLogRows.forEach(l => mergedLogsMap.set(l.log_date, l));
+            const dailyLogRows = Array.from(mergedLogsMap.values()).sort((a, b) => b.log_date.localeCompare(a.log_date));
+
             const spikeFlagRows = (spikeFlags.data ?? []) as Array<{
                 id: string; title: string; body: string; created_at: string;
             }>;

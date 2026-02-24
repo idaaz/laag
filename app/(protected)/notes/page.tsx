@@ -9,10 +9,10 @@ import { MediaGalleryModal } from "@/components/notes/MediaGalleryModal";
 
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
-import { LiveRegion } from "@/components/structure/LiveRegion";
 import { FloatingActionButton } from "@/components/structure/FloatingActionButton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pushToast } from "@/components/ui/toast";
 import {
     DropdownMenu,
     DropdownMenuItem,
@@ -21,6 +21,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useNotes } from "@/hooks/useNotes";
 import { NoteFormDialog } from "@/components/notes/NoteFormDialog";
+import { ArchiveViewerDialog } from "@/components/archive/ArchiveViewerDialog";
 import type { VisionNoteRow } from "@/lib/supabase/types";
 
 export default function NotesPage() {
@@ -28,7 +29,6 @@ export default function NotesPage() {
     const searchParams = useSearchParams();
     const { notes, isLoading, updateNoteAsync, deleteNoteAsync } = useNotes(user?.id);
 
-    const [announcement, setAnnouncement] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
     // Dialog state
@@ -67,8 +67,8 @@ export default function NotesPage() {
 
     const handleTogglePin = async (note: VisionNoteRow) => {
         try {
-            await updateNoteAsync({ id: note.id, payload: { pinned: !note.pinned } });
-            setAnnouncement(`Note ${note.pinned ? "unpinned" : "pinned"}.`);
+            const updated = await updateNoteAsync({ id: note.id, payload: { pinned: !note.pinned } });
+            pushToast(updated.pinned ? "Pinned" : "Unpinned", `"${updated.title}" status updated.`);
         } catch (e) {
             console.error(e);
         }
@@ -78,7 +78,7 @@ export default function NotesPage() {
         if (!window.confirm("Are you sure you want to permanently delete this note?")) return;
         try {
             await deleteNoteAsync(note.id);
-            setAnnouncement("Note deleted.");
+            // pushToast is handled by hook
         } catch (e) {
             console.error(e);
         }
@@ -92,16 +92,19 @@ export default function NotesPage() {
                     description="Capture context, risk, and vision."
                     icon={<NotebookPen className="h-5 w-5" />}
                     actions={
-                        <Button
-                            className="bg-primary text-primary-foreground shadow-md transition-all hover:bg-primary/90"
-                            onClick={() => {
-                                setEditingNote(null);
-                                setFormOpen(true);
-                            }}
-                        >
-                            <Plus className="h-4 w-4 mr-1.5" />
-                            New Note
-                        </Button>
+                        <div className="flex bg-secondary/20 p-1 rounded-xl border border-border/30 gap-2">
+                            <ArchiveViewerDialog type="notes" />
+                            <Button
+                                className="bg-primary text-primary-foreground shadow-md transition-all hover:bg-primary/90"
+                                onClick={() => {
+                                    setEditingNote(null);
+                                    setFormOpen(true);
+                                }}
+                            >
+                                <Plus className="h-4 w-4 mr-1.5" />
+                                New Note
+                            </Button>
+                        </div>
                     }
                 />
             }
@@ -196,8 +199,6 @@ export default function NotesPage() {
                     )}
                 </div>
             )}
-
-            <LiveRegion message={announcement} />
 
             <NoteFormDialog
                 open={formOpen}
