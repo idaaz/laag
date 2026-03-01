@@ -13,18 +13,15 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
 
-const XPLineChart = dynamic(() => import("@/components/charts/XPLineChart").then((m) => m.XPLineChart));
-const RadarLifeBalance = dynamic(() =>
-    import("@/components/charts/RadarLifeBalance").then((m) => m.RadarLifeBalance)
+import { CategoryROIScatter } from "@/components/charts/CategoryROIScatter";
+import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
+import { TasksGraph, HabitStatCard, LogStatCard, NoteStatCard, TrackStatCard } from "@/components/dashboard/DashboardStats";
+
+const CommandScoreArea = dynamic(() =>
+    import("@/components/charts/CommandScoreArea").then((m) => m.CommandScoreArea)
 );
-const HeatmapCalendar = dynamic(() =>
-    import("@/components/charts/HeatmapCalendar").then((m) => m.HeatmapCalendar)
-);
-const MoodLineChart = dynamic(() =>
-    import("@/components/charts/MoodLineChart").then((m) => m.MoodLineChart)
-);
-const ScreenStudyArea = dynamic(() =>
-    import("@/components/charts/ScreenStudyArea").then((m) => m.ScreenStudyArea)
+const ExecutionGapBar = dynamic(() =>
+    import("@/components/charts/ExecutionGapBar").then((m) => m.ExecutionGapBar)
 );
 
 function TrendIndicator({ trend }: { trend: "improving" | "worsening" | "stable" }) {
@@ -48,6 +45,9 @@ export default function AnalyticsPage() {
     const { user } = useAuth();
     const [range, setRange] = useState<"7d" | "30d" | "90d">("7d");
     const analytics = useAnalytics(user?.id, range);
+    const dashboardStats = useDashboardMetrics(user?.id);
+    const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+
     const { isLoading } = analytics;
 
     // Trigger achievement check and increment views
@@ -77,11 +77,11 @@ export default function AnalyticsPage() {
 
     const mobileKPIs = useMemo(() => {
         return [
-            { label: "Burnout", value: model?.burnoutIndex.toFixed(1) ?? "0.0", color: "warning" as const },
-            { label: "Overconfidence", value: model?.overconfidenceIndex.toFixed(1) ?? "0.0", color: "calibration" as const },
-            { label: "Productivity", value: model?.productivityTrend?.averageProductivity.toFixed(0) ?? "0", color: "focus" as const }
+            { label: "Command", value: `${model?.avgCommandScore ?? "0.0"}%`, color: "focus" as const },
+            { label: "Exe Gap", value: `${model?.avgExecutionGap ?? "0"}m`, color: "warning" as const },
+            { label: "At Risk", value: `${model?.atRiskHabitsCount ?? "0"}`, color: "calibration" as const }
         ];
-    }, [model?.burnoutIndex, model?.overconfidenceIndex, model?.productivityTrend?.averageProductivity]);
+    }, [model?.avgCommandScore, model?.avgExecutionGap, model?.atRiskHabitsCount]);
 
     useRegisterKPIs(mobileKPIs);
 
@@ -112,152 +112,150 @@ export default function AnalyticsPage() {
             {/* Mobile Snapshot (Hidden, use Overlay instead) */}
             <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-3 hidden lg:block md:hidden">
                 <h2 className="text-sm font-semibold mb-2">Snapshot</h2>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                     <article className="rounded-lg border border-border/70 bg-background/60 p-2">
                         <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-muted-foreground">Burnout</p>
-                            {model && <TrendIndicator trend={model.burnoutTrend} />}
+                            <p className="text-[11px] text-muted-foreground">Command</p>
+                            {model && <TrendIndicator trend={model.commandTrendDirection} />}
                         </div>
                         {loading ? (
                             <Skeleton className="mt-1 h-7 w-16" />
                         ) : (
-                            <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--k-orange)]">
-                                {model?.burnoutIndex.toFixed(1) ?? "0.0"}
+                            <p className="mt-1 text-xl font-semibold tabular-nums text-primary">
+                                {model?.avgCommandScore}%
                             </p>
                         )}
                     </article>
                     <article className="rounded-lg border border-border/70 bg-background/60 p-2">
                         <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-muted-foreground">Overconfidence</p>
-                            {model && <TrendIndicator trend={model.overconfidenceTrend} />}
+                            <p className="text-[11px] text-muted-foreground">Avg Gap</p>
                         </div>
                         {loading ? (
                             <Skeleton className="mt-1 h-7 w-16" />
                         ) : (
-                            <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--k-purple)]">
-                                {model?.overconfidenceIndex.toFixed(1) ?? "0.0"}
+                            <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--k-gold)]">
+                                {model?.avgExecutionGap}m
+                            </p>
+                        )}
+                    </article>
+                    <article className="rounded-lg border border-border/70 bg-background/60 p-2">
+                        <div className="flex items-center justify-between">
+                            <p className="text-[11px] text-muted-foreground">At Risk</p>
+                        </div>
+                        {loading ? (
+                            <Skeleton className="mt-1 h-7 w-16" />
+                        ) : (
+                            <p className="mt-1 text-xl font-semibold tabular-nums text-[var(--k-red)]">
+                                {model?.atRiskHabitsCount}
                             </p>
                         )}
                     </article>
                 </div>
             </section>
 
-            {/* Mobile XP Trend */}
+            {/* Dashboard Overview Stats */}
+            <section className="col-span-full mb-2">
+                <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-card/40 p-4 backdrop-blur-xl overflow-x-auto hide-scrollbar">
+                    <TasksGraph
+                        pending={dashboardStats.data?.pendingTaskCount ?? 0}
+                        completed={dashboardStats.data?.completedTasks ?? 0}
+                        overdue={dashboardStats.data?.overdueTasks ?? 0}
+                    />
+                    <HabitStatCard
+                        habits={dashboardStats.data?.habitRows ?? []}
+                        h={dashboardStats.data?.habitRows?.find(h => h.id === selectedHabitId) || dashboardStats.data?.habitRows?.[0] || null}
+                        onSelect={setSelectedHabitId}
+                    />
+                    <LogStatCard
+                        logged={dashboardStats.data?.loggedDays ?? 0}
+                        missed={dashboardStats.data?.missedDays ?? 0}
+                        accountability={dashboardStats.data?.avgAccountability ?? 0}
+                        energy={dashboardStats.data?.avgEnergy ?? 0}
+                    />
+                    <NoteStatCard
+                        completed={dashboardStats.data?.notesCompleted ?? 0}
+                        pending={dashboardStats.data?.notesPending ?? 0}
+                        pinned={dashboardStats.data?.notesPinned ?? 0}
+                    />
+                    <TrackStatCard
+                        total={dashboardStats.data?.totalVisitsToday ?? 0}
+                        top={dashboardStats.data?.topVisit ?? { name: "N/A", count: 0 }}
+                    />
+                </div>
+            </section>
+
+            {/* Mobile Command Trend */}
             <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:hidden">
-                <h2 className="text-sm font-semibold mb-2">XP Trend</h2>
-                {loading ? <Skeleton className="h-[220px] w-full rounded-xl" /> : <XPLineChart data={model?.xpGrowth ?? []} />}
-            </section>
-
-            {/* Productivity Insights (New) */}
-            {model?.productivityTrend && (
-                <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                        <TrendingUp className="h-4 w-4 text-primary" />
-                        <h2 className="text-sm font-semibold">Productivity Insights</h2>
+                <h2 className="text-sm font-semibold mb-2">Command Trend</h2>
+                {loading ? <Skeleton className="h-[220px] w-full rounded-xl" /> : (
+                    <div className="h-[220px] w-full">
+                        <CommandScoreArea data={model?.commandTrend ?? []} />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <InsightCard
-                            title="Avg Productivity"
-                            value={model.productivityTrend.averageProductivity}
-                            subtitle="Daily average"
-                            icon={BarChart3}
-                            tone="focus"
-                            trend={model.productivityTrend.weekOverWeekChange > 0 ? "up" : model.productivityTrend.weekOverWeekChange < 0 ? "down" : "neutral"}
-                            trendValue={`${model.productivityTrend.weekOverWeekChange > 0 ? "+" : ""}${model.productivityTrend.weekOverWeekChange}%`}
-                        />
-                        <InsightCard
-                            title="Best Day"
-                            value={model.productivityTrend.bestDay?.productivity.toFixed(1) ?? "N/A"}
-                            subtitle={model.productivityTrend.bestDay?.date ?? "No data"}
-                            icon={TrendingUp}
-                            tone="focus"
-                        />
-                        <InsightCard
-                            title="Category Balance"
-                            value={model.categoryBreakdown[0]?.category ?? "N/A"}
-                            subtitle={`${Math.round(model.categoryBreakdown[0]?.percentage ?? 0)}% of time`}
-                            icon={PieChart}
-                            tone="info"
-                        />
+                )}
+            </section>
+
+            {/* Desktop Charts - Command Focus */}
+            <section className="hidden col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:block lg:col-span-full">
+                <h2 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" /> Command vs. Discipline
+                </h2>
+                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : (
+                    <div className="h-[260px] w-full">
+                        <CommandScoreArea data={model?.commandTrend ?? []} />
                     </div>
-
-                    {/* Category Breakdown */}
-                    {model.categoryBreakdown.length > 0 && (
-                        <div className="mt-4">
-                            <h3 className="text-xs font-medium text-muted-foreground mb-2">Time Distribution</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {model.categoryBreakdown.map((cat) => (
-                                    <div
-                                        key={cat.category}
-                                        className="rounded-full border border-border/60 bg-background/40 px-3 py-1.5 text-xs font-medium"
-                                    >
-                                        <span
-                                            className="inline-block w-2 h-2 rounded-full mr-1.5"
-                                            style={{ backgroundColor: cat.color }}
-                                        />
-                                        {cat.category}: {Math.round(cat.minutes)}m ({Math.round(cat.percentage)}%)
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </section>
-            )}
-
-            {/* Desktop Charts */}
-            <section className="hidden col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:block lg:col-span-8">
-                <h2 className="text-sm font-semibold mb-2">XP</h2>
-                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : <XPLineChart data={model?.xpGrowth ?? []} />}
+                )}
             </section>
 
-            <section className="hidden col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:block lg:col-span-4">
-                <h2 className="text-sm font-semibold mb-2">Balance</h2>
-                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : <RadarLifeBalance data={model?.radar ?? []} />}
-            </section>
-
-            <section className="hidden col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:block lg:col-span-7">
-                <h2 className="text-sm font-semibold mb-2">Heat</h2>
-                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : <HeatmapCalendar data={model?.heatmap ?? []} />}
-            </section>
-
-            <section className="hidden col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:block lg:col-span-5">
-                <h2 className="text-sm font-semibold mb-2">Screen vs Study</h2>
-                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : <ScreenStudyArea data={model?.screenVsStudy ?? []} />}
-            </section>
-
-            <section className="hidden col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:block lg:col-span-7">
-                <h2 className="text-sm font-semibold mb-2">Mood vs Output</h2>
-                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : <MoodLineChart data={model?.moodProductivity ?? []} />}
-            </section>
-
-            {/* Enhanced Burnout & Overconfidence Cards */}
-            <section className="hidden col-span-full grid-cols-1 gap-3 md:grid md:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
-                <article className="rounded-xl border border-border/80 bg-card/85 p-3">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">Burnout</p>
-                        {model && <TrendIndicator trend={model.burnoutTrend} />}
+            <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:col-span-6 lg:col-span-7">
+                <h2 className="text-sm font-semibold mb-2">Execution Gap (Discipline)</h2>
+                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : (
+                    <div className="h-[260px] w-full">
+                        <ExecutionGapBar data={model?.executionGap ?? []} />
                     </div>
-                    {loading ? (
-                        <Skeleton className="h-10 w-20 mt-1" />
-                    ) : (
-                        <p className="text-3xl font-semibold mt-1 tabular-nums text-[var(--k-orange)]">
-                            {model?.burnoutIndex.toFixed(1) ?? "0.0"}
-                        </p>
-                    )}
-                </article>
-                <article className="rounded-xl border border-border/80 bg-card/85 p-3">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">Overconfidence</p>
-                        {model && <TrendIndicator trend={model.overconfidenceTrend} />}
+                )}
+            </section>
+
+            <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-3 md:col-span-6 lg:col-span-5">
+                <h2 className="text-sm font-semibold mb-2">Category ROI</h2>
+                {loading ? <Skeleton className="h-[260px] w-full rounded-xl" /> : (
+                    <div className="h-[260px] w-full">
+                        <CategoryROIScatter data={model?.categoryROI ?? []} />
                     </div>
-                    {loading ? (
-                        <Skeleton className="h-10 w-20 mt-1" />
-                    ) : (
-                        <p className="text-3xl font-semibold mt-1 tabular-nums text-[var(--k-purple)]">
-                            {model?.overconfidenceIndex.toFixed(1) ?? "0.0"}
-                        </p>
-                    )}
-                </article>
+                )}
+            </section>
+
+            {/* Habit Risk Analysis */}
+            <section className="col-span-full rounded-xl border border-border/80 bg-card/85 p-4 lg:col-span-12">
+                <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <TrendingDown className="h-4 w-4 text-[var(--k-red)]" /> At-Risk Habits (Decay Warning)
+                </h2>
+                {loading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                ) : model && model.habitRisk.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {model.habitRisk.slice(0, 6).map(habit => (
+                            <article key={habit.habitId} className="flex items-center justify-between rounded-lg border border-border/40 bg-background/40 p-3">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-foreground truncate max-w-[120px]">{habit.name}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{habit.recentMisses} recent misses</span>
+                                </div>
+                                <div className="flex items-center justify-center h-10 w-10 rounded-full border border-border/60 bg-background shadow-inner">
+                                    <span className={cn(
+                                        "text-xs font-bold",
+                                        habit.riskScore > 75 ? "text-[var(--k-red)]" : habit.riskScore > 40 ? "text-[var(--k-orange)]" : "text-[var(--k-green)]"
+                                    )}>
+                                        {habit.riskScore}
+                                    </span>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted-foreground">No habits currently at risk.</p>
+                )}
             </section>
         </PageFrame>
     );

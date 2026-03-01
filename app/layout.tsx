@@ -48,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} min-h-screen font-sans bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary`}
+        suppressHydrationWarning
       >
         <Providers>
           <GlobalLoadingBar />

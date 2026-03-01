@@ -4,19 +4,15 @@ let videoElement = null;
 let trackingInterval = null;
 let lastState = null; // { url, startTime, watchTime, videoStart, videoEnd }
 
-// Helper to get video ID and current time
-function getVideoState() {
-    if (!videoElement) return null;
-    return {
-        currentTime: videoElement.currentTime,
-        duration: videoElement.duration,
-        paused: videoElement.paused,
-        url: window.location.href
-    };
+// Helper to check if current URL is a trackable YouTube page
+function isTrackableUrl(url) {
+    return url.includes('/watch') || url.includes('/shorts/');
 }
 
 // Initialize tracking for a new video
 function initTracking() {
+    if (!videoElement) return;
+
     // Reset state
     lastState = {
         url: window.location.href,
@@ -33,11 +29,11 @@ function initTracking() {
 
 // Send update to background script
 function sendUpdate() {
-    if (!lastState) return;
+    if (!lastState || !videoElement) return;
 
     // Calculate delta since last tick if playing
     const now = Date.now();
-    if (!videoElement.paused && !lastState.isBuffering) {
+    if (!videoElement.paused && !lastState.isBuffering && videoElement.readyState >= 2) {
         const delta = (now - lastState.lastTick) / 1000;
         if (delta > 0 && delta < 5) { // Sanity check: ignore huge jumps (sleep/suspend)
             lastState.watchTime += delta;
@@ -67,10 +63,14 @@ function sendUpdate() {
 function startTracking() {
     stopTracking(); // Ensure cleanup
 
-    // Find video element
-    videoElement = document.querySelector('video');
+    // Find video element - in Shorts it might be one of several
+    // We target the active/visible video if possible
+    const videos = Array.from(document.querySelectorAll('video'));
+    videoElement = videos.find(v => v.offsetParent !== null) || videos[0];
+
     if (!videoElement) {
-        console.log("LAAG Tracker: No video element found.");
+        console.log("LAAG Tracker: No active video element found. Retrying...");
+        setTimeout(startTracking, 2000);
         return;
     }
 
@@ -78,6 +78,7 @@ function startTracking() {
 
     // Listeners
     videoElement.addEventListener('play', () => {
+        if (!lastState) initTracking();
         lastState.lastTick = Date.now();
         lastState.isBuffering = false;
         console.log("LAAG Tracker: Play");
@@ -89,31 +90,20 @@ function startTracking() {
     });
 
     videoElement.addEventListener('seeking', () => {
-        // If seeking, we might want to "break" the session or just update the end time?
-        // User asked for "which minute:sec of video was started and ended"
-        // If they skip from 0:10 to 5:00, the videoEnd becomes 5:00+. 
-        // We update videoEnd to the new time.
-        // NOTE: If they jump BACKWARDS, videoEnd might decrease? 
-        // Let's keep videoStart as the *initial* start, and videoEnd as the *latest* point reached?
-        // Or just the current point.
-        // Let's track the *furthest* point? Or just the point where they stop?
-        // "which minute:sec of video was started and ended" implies the range of THIS session.
-        // If I watch 0-10, seek to 50, watch 50-60.
-        // The watch time is 20s. Start 0. End 60? Or End 50?
-        // Simple approach: Start is when they loaded/started. End is where they left off.
-        lastState.videoEnd = videoElement.currentTime;
-        console.log("LAAG Tracker: Seek to", lastState.videoEnd);
+        if (lastState) {
+            lastState.videoEnd = videoElement.currentTime;
+        }
     });
 
     videoElement.addEventListener('waiting', () => {
-        lastState.isBuffering = true;
-        console.log("LAAG Tracker: Buffering...");
+        if (lastState) lastState.isBuffering = true;
     });
 
     videoElement.addEventListener('playing', () => {
-        lastState.isBuffering = false;
-        lastState.lastTick = Date.now();
-        console.log("LAAG Tracker: Resumed");
+        if (lastState) {
+            lastState.isBuffering = false;
+            lastState.lastTick = Date.now();
+        }
     });
 
     // Heartbeat every 5 seconds
@@ -126,21 +116,21 @@ function stopTracking() {
         trackingInterval = null;
     }
     videoElement = null;
+    lastState = null;
 }
 
 // Observe navigation (YouTube is SPA)
-// We can listen to title changes or URL changes via MutationObserver or just interval check?
-// Background script handles the MAIN tracking of URL visits.
-// THIS script is purely for augmenting with watch time.
-// We need to know when the generic "page load" effectively happens for a new video.
-
 let currentUrl = window.location.href;
 setInterval(() => {
     if (window.location.href !== currentUrl) {
+        const oldUrl = currentUrl;
         currentUrl = window.location.href;
-        if (currentUrl.includes('/watch')) {
-            // Give time for DOM to update
-            setTimeout(startTracking, 2000);
+
+        console.log("LAAG Tracker: URL changed from", oldUrl, "to", currentUrl);
+
+        if (isTrackableUrl(currentUrl)) {
+            // Give time for DOM to update and new video element to become active
+            setTimeout(startTracking, 1500);
         } else {
             stopTracking();
         }
@@ -148,7 +138,7 @@ setInterval(() => {
 }, 1000);
 
 // Initial start
-if (currentUrl.includes('/watch')) {
+if (isTrackableUrl(currentUrl)) {
     setTimeout(startTracking, 2000);
 }
 

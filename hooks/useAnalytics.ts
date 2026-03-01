@@ -18,11 +18,12 @@ export function useAnalytics(userId?: string, range: AnalyticsRange = "30d") {
   return useQuery({
     queryKey: ["analytics", userId, range],
     enabled: !!userId,
+    staleTime: 1000 * 60 * 5,   // 5 minutes — analytics data doesn't need constant refetch
     queryFn: async () => {
       if (!userId) throw new Error("Missing user");
       const start = subDays(new Date(), days).toISOString().slice(0, 10);
 
-      const [xpDaily, logs, snapshots, cached] = await Promise.all([
+      const [xpDaily, logs, snapshots, cached, timeBlocks, activeHabits, completions, tasksReq] = await Promise.all([
         supabase
           .from("xp_events")
           .select("created_at,delta_xp")
@@ -45,9 +46,29 @@ export function useAnalytics(userId?: string, range: AnalyticsRange = "30d") {
           .from("analytics_cache")
           .select("payload")
           .eq("user_id", userId)
-          .eq("metric_key", `overview_${range}`)
+          .eq("metric_key", `v2_overview_${range}`)
           .gt("expires_at", new Date().toISOString())
-          .maybeSingle()
+          .maybeSingle(),
+        supabase
+          .from("time_blocks")
+          .select("start_time,end_time")
+          .eq("user_id", userId)
+          .gte("start_time", `${start}T00:00:00.000Z`)
+          .order("start_time", { ascending: true }),
+        supabase
+          .from("habits")
+          .select("id,name,relapse_count")
+          .eq("user_id", userId),
+        supabase
+          .from("habit_completion_answers")
+          .select("habit_id,completion_date")
+          .eq("user_id", userId)
+          .gte("completion_date", start),
+        supabase
+          .from("tasks")
+          .select("id,completed_at,created_at")
+          .eq("user_id", userId)
+          .gte("created_at", `${start}T00:00:00.000Z`)
       ]);
 
       const cachedData = cached.data as { payload?: unknown } | null;
@@ -58,6 +79,10 @@ export function useAnalytics(userId?: string, range: AnalyticsRange = "30d") {
       if (xpDaily.error) throw xpDaily.error;
       if (logs.error) throw logs.error;
       if (snapshots.error) throw snapshots.error;
+      if (timeBlocks.error) throw timeBlocks.error;
+      if (activeHabits.error) throw activeHabits.error;
+      if (completions.error) throw completions.error;
+      if (tasksReq.error) throw tasksReq.error;
 
       // Fetch GitHub archived daily logs
       let githubLogs: any[] = [];
@@ -96,6 +121,11 @@ export function useAnalytics(userId?: string, range: AnalyticsRange = "30d") {
         map.set(day, (map.get(day) ?? 0) + row.delta_xp);
       });
 
+      const timeBlockRows = (timeBlocks.data ?? []) as Array<{ start_time: string; end_time: string }>;
+      const habitRows = (activeHabits.data ?? []) as Array<{ id: string; name: string; relapse_count: number }>;
+      const compRows = (completions.data ?? []) as Array<{ habit_id: string; completion_date: string; }>;
+      const taskRows = (tasksReq.data ?? []) as Array<{ id: string; completed_at: string | null; created_at: string }>;
+
       const model = buildAnalyticsSeries(
         {
           xpDaily: Array.from(map.entries()).map(([date, xp_total]) => ({ date, xp_total })),
@@ -111,24 +141,33 @@ export function useAnalytics(userId?: string, range: AnalyticsRange = "30d") {
             screen_minutes: item.screen_minutes,
             mood: item.mood,
             productivity: item.productivity
-          }))
+          })),
+          timeBlocks: timeBlockRows,
+          habits: habitRows,
+          completions: compRows,
+          tasks: taskRows
         },
         Intl.DateTimeFormat().resolvedOptions().timeZone
       );
 
-      await supabase.from("analytics_cache").upsert(
-        {
-          user_id: userId,
-          metric_key: `overview_${range}`,
-          period_start: start,
-          period_end: new Date().toISOString().slice(0, 10),
-          payload: model,
-          generated_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
-          cache_version: 1
-        } as never,
-        { onConflict: "user_id,metric_key,period_start,period_end" }
-      );
+      // Cache is best-effort; silently ignore 401 / RLS errors
+      try {
+        await supabase.from("analytics_cache").upsert(
+          {
+            user_id: userId,
+            metric_key: `v2_overview_${range}`,
+            period_start: start,
+            period_end: new Date().toISOString().slice(0, 10),
+            payload: model,
+            generated_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 1000 * 60 * 15).toISOString(),
+            cache_version: 1
+          } as never,
+          { onConflict: "user_id,metric_key,period_start,period_end" }
+        );
+      } catch (_) {
+        // cache failure is non-fatal
+      }
 
       return model;
     }

@@ -2,7 +2,21 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { format } from "date-fns";
-import { BarChart3, ExternalLink, Globe, Search, Target, TrendingUp, LayoutPanelLeft } from "lucide-react";
+import {
+  BarChart3,
+  Globe,
+  Target,
+  TrendingUp,
+  Clock,
+  Search,
+  Filter,
+  Plus,
+  ExternalLink,
+  LayoutPanelLeft,
+  Wand2,
+  Video,
+  Shuffle
+} from "lucide-react";
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,6 +28,7 @@ import { TrackingCategoriesPieChart } from "@/components/analytics/TrackingCateg
 import { IframeViewer } from "@/components/tracking/IframeViewer";
 import { ManageCategoriesDialog } from "@/components/tracking/ManageCategoriesDialog";
 import { AssignDomainDialog } from "@/components/tracking/AssignDomainDialog";
+import { ManageCustomRulesDialog } from "@/components/tracking/ManageCustomRulesDialog";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,8 +36,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useTracking } from "@/hooks/useTracking";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
+import { TrackingCustomRuleRow } from "@/lib/supabase/types";
 
 const PAGE_SIZE = 10;
+
+function formatDuration(seconds: number) {
+  if (!seconds) return null;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins === 0) return `${secs}s`;
+  return `${mins}m ${secs}s`;
+}
 
 import { useSearchParams } from "next/navigation";
 
@@ -32,19 +56,38 @@ export default function TrackingPage() {
   const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
   const [analyticsLimit, setAnalyticsLimit] = useState(10);
-  const { visitedUrlsQuery, analyticsQuery, logInAppVisit } = useTracking(userId, page, PAGE_SIZE, analyticsLimit);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<[number, number]>([0, 24]);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+  const [isManageCustomRulesOpen, setIsManageCustomRulesOpen] = useState(false);
+  const [selectedCustomRule, setSelectedCustomRule] = useState<TrackingCustomRuleRow | null>(null);
   const [domainToAssign, setDomainToAssign] = useState<string | null>(null);
+
+  const { visitedUrlsQuery, analyticsQuery, logInAppVisit } = useTracking(
+    userId,
+    page,
+    PAGE_SIZE,
+    analyticsLimit,
+    {
+      urlPrefix: selectedCustomRule?.url_prefix,
+      search,
+      startHour: timeRange[0],
+      endHour: timeRange[1]
+    }
+  );
 
   // Sync search with URL for in-tab search
   useEffect(() => {
     const q = searchParams.get("q") || "";
     setSearch(q);
   }, [searchParams]);
+
+  // Reset to page 1 whenever the active custom rule changes
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCustomRule]);
 
   function handlePreviewUrl(url: string, title: string | null) {
     setSelectedUrl(url);
@@ -87,11 +130,16 @@ export default function TrackingPage() {
 
   const mobileKPIs = useMemo(() => {
     if (!analytics) return [];
+
+    const peakHourStr = analytics.peakHour !== undefined && analytics.peakHour !== null
+      ? `${analytics.peakHour}:00`
+      : "N/A";
+
     return [
       { label: "Focus", value: `${analytics.focusScore}%`, color: "score" as const },
-      { label: "Visits", value: analytics.totalVisits, color: "info" as const },
-      { label: "Unique", value: analytics.uniqueDomains, color: "focus" as const },
-      { label: "Top Cat", value: analytics.categories[0]?.category || "N/A", color: "achievement" as const }
+      { label: "Switches", value: analytics.contextSwitches, color: "score" as const },
+      { label: "Peak", value: peakHourStr, color: "focus" as const },
+      { label: "Power User", value: analytics.topDomain || "N/A", color: "achievement" as const }
     ];
   }, [analytics]);
 
@@ -129,6 +177,15 @@ export default function TrackingPage() {
                   <SelectItem value="100">Top 100</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                className={cn("h-9 w-9", selectedCustomRule ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground")}
+                onClick={() => setIsManageCustomRulesOpen(true)}
+                title="Custom Tracking Rules"
+              >
+                <Wand2 className="h-4 w-4" />
+              </Button>
             </div>
           }
         />
@@ -141,7 +198,7 @@ export default function TrackingPage() {
             <BarChart3 className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold">Insights (Last 30 Days)</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <InsightCard
               title="Focus Score"
               value={`${analytics.focusScore}%`}
@@ -150,18 +207,39 @@ export default function TrackingPage() {
               tone="score"
             />
             <InsightCard
-              title="Total Visits"
-              value={analytics.totalVisits}
-              subtitle={`${analytics.uniqueDomains} unique domains`}
-              icon={Globe}
+              title="Productive Pulse"
+              value={analytics.productiveCount}
+              subtitle="Visits in productive zones"
+              icon={TrendingUp}
+              tone="focus"
+            />
+            <InsightCard
+              title="Peak Activity"
+              value={analytics.peakHour !== undefined && analytics.peakHour !== null ? `${analytics.peakHour}:00` : "N/A"}
+              subtitle="Most active hour"
+              icon={BarChart3}
               tone="info"
             />
             <InsightCard
-              title="Top Category"
-              value={analytics.categories[0]?.category || "N/A"}
-              subtitle={`${Math.round(analytics.categories[0]?.percentage || 0)}% of visits`}
-              icon={TrendingUp}
+              title="YouTube Time"
+              value={analytics.totalWatchTime ? formatDuration(analytics.totalWatchTime) || "0s" : "0s"}
+              subtitle="Time spent on videos"
+              icon={Video}
               tone="info"
+            />
+            <InsightCard
+              title="Context Switches"
+              value={analytics.contextSwitches}
+              subtitle="Domain transitions count"
+              icon={Shuffle}
+              tone="score"
+            />
+            <InsightCard
+              title="Power User"
+              value={analytics.topDomain || "N/A"}
+              subtitle="Most visited site"
+              icon={Globe}
+              tone="achievement"
             />
           </div>
 
@@ -256,6 +334,18 @@ export default function TrackingPage() {
             className="w-full"
           />
         </div>
+        {selectedCustomRule && (
+          <div className="flex items-center gap-2 rounded-full border border-primary/60 bg-primary/15 px-3 py-1.5 ml-auto">
+            <Wand2 className="h-3 w-3 text-primary shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-semibold text-primary leading-tight">{selectedCustomRule.name}</span>
+              <span className="text-[10px] text-primary/70 leading-tight truncate max-w-[180px]">{selectedCustomRule.url_prefix}…</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-4 w-4 rounded-full hover:bg-primary/20 hover:text-primary shrink-0" onClick={() => setSelectedCustomRule(null)}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* URL List */}
@@ -309,9 +399,17 @@ export default function TrackingPage() {
                         </a>
                       </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      {format(new Date(entry.visited_at), "MMM d, HH:mm")}
-                    </p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="text-[11px] text-muted-foreground">
+                        {format(new Date(entry.visited_at), "MMM d, HH:mm")}
+                      </p>
+                      {entry.watch_time_seconds > 0 && (
+                        <div className="flex items-center gap-1 text-[11px] font-medium text-primary">
+                          <Video className="h-3 w-3" />
+                          <span>{formatDuration(entry.watch_time_seconds)}</span>
+                        </div>
+                      )}
+                    </div>
                   </article>
                 ))}
               </div>
@@ -320,7 +418,8 @@ export default function TrackingPage() {
                 <thead className="sticky top-0 z-10 bg-secondary/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">Title</th>
-                    <th className="w-1/3 px-3 py-2 font-medium">URL</th>
+                    <th className="w-1/4 px-3 py-2 font-medium">URL</th>
+                    <th className="w-24 px-3 py-2 font-medium">Watch Time</th>
                     <th className="w-36 px-3 py-2 text-right font-medium">Visited</th>
                   </tr>
                 </thead>
@@ -366,6 +465,14 @@ export default function TrackingPage() {
                           </div>
                         </div>
                       </td>
+                      <td className="px-3 py-2 text-xs font-medium text-primary">
+                        {entry.watch_time_seconds > 0 ? (
+                          <div className="flex items-center gap-1">
+                            <Video className="h-3 w-3" />
+                            {formatDuration(entry.watch_time_seconds)}
+                          </div>
+                        ) : "-"}
+                      </td>
                       <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                         {format(new Date(entry.visited_at), "MMM d, HH:mm")}
                       </td>
@@ -398,6 +505,12 @@ export default function TrackingPage() {
       <ManageCategoriesDialog
         open={isManageCategoriesOpen}
         onOpenChange={setIsManageCategoriesOpen}
+      />
+
+      <ManageCustomRulesDialog
+        open={isManageCustomRulesOpen}
+        onOpenChange={setIsManageCustomRulesOpen}
+        onSelectRule={setSelectedCustomRule}
       />
 
       <AssignDomainDialog

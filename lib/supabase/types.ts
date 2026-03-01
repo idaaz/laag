@@ -376,6 +376,14 @@ export type TrackingDomainCategoryRow = {
   created_at: string;
 };
 
+export type TrackingCustomRuleRow = {
+  id: string; // uuid
+  user_id: string; // uuid
+  url_prefix: string;
+  name: string;
+  created_at: string; // timestamptz
+};
+
 type InsertWithoutGenerated<T> = Omit<T, "id" | "created_at" | "updated_at"> & {
   id?: string;
   created_at?: string;

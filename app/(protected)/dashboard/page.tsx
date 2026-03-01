@@ -23,7 +23,14 @@ import {
     Target,
     Zap
 } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer } from "recharts";
+import { Area, AreaChart, Pie, PieChart, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { LiveRegion } from "@/components/structure/LiveRegion";
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
@@ -42,18 +49,9 @@ import type { DailyLogRow, HabitRow, TaskRow, TimeBlockRow } from "@/lib/supabas
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
 import { useNotes } from "@/hooks/useNotes";
 
+import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
+
 /* ─── Helpers ──────────────────────────────────────────────── */
-
-function toLocalDateKey(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
-
-function isActionableTask(task: TaskRow) {
-    return task.status === "todo" || task.status === "in_progress";
-}
 
 function formatTimerClock(totalSeconds: number) {
     const minutes = Math.floor(totalSeconds / 60);
@@ -189,6 +187,8 @@ function ActionRow({ icon: Icon, label, count, href, color }: {
     );
 }
 
+import { TasksGraph, HabitStatCard, LogStatCard, NoteStatCard, TrackStatCard } from "@/components/dashboard/DashboardStats";
+
 /* ─── Main Dashboard ──────────────────────────────────────── */
 
 export default function DashboardPage() {
@@ -196,186 +196,19 @@ export default function DashboardPage() {
     const { user } = useAuth();
     const userId = user?.id;
     const [announcement, setAnnouncement] = useState<string | null>(null);
-    const [flagsExpanded, setFlagsExpanded] = useState(false);
+    const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
     const { summary } = useXP(userId);
     const timer = useTimer();
 
     useRealtime(
-        ["tasks", "habits", "daily_logs", "time_blocks", "xp_events"],
+        ["tasks", "habits", "daily_logs", "time_blocks", "xp_events", "vision_notes", "visited_urls"],
         [["dashboard-metrics", userId ?? ""]]
     );
 
     // Active notes hook
-    const { notes } = useNotes(userId, { limit: 5 });
+    const { notes: recentNotes } = useNotes(userId, { limit: 5 });
 
-    const dashboardQuery = useQuery({
-        queryKey: ["dashboard-metrics", userId],
-        enabled: !!userId,
-        queryFn: async () => {
-            if (!userId) throw new Error("Missing user");
-
-            const now = new Date();
-            const startOfToday = new Date(now);
-            startOfToday.setHours(0, 0, 0, 0);
-            const endOfToday = new Date(now);
-            endOfToday.setHours(23, 59, 59, 999);
-            const weekAgoStart = new Date(startOfToday);
-            weekAgoStart.setDate(weekAgoStart.getDate() - 6);
-
-            const today = toLocalDateKey(startOfToday);
-            const weekAgo = toLocalDateKey(weekAgoStart);
-
-            const [tasks, habits, dailyLogs, spikeFlags, timeBlocks, xpEvents] = await Promise.all([
-                supabase.from("tasks").select("*").eq("user_id", userId),
-                supabase.from("habits").select("*").eq("user_id", userId),
-                supabase
-                    .from("daily_logs")
-                    .select("*")
-                    .eq("user_id", userId)
-                    .gte("log_date", weekAgo)
-                    .order("log_date", { ascending: false }),
-                supabase
-                    .from("notifications")
-                    .select("id,title,body,created_at")
-                    .eq("user_id", userId)
-                    .eq("type", "relapse_alert")
-                    .order("created_at", { ascending: false })
-                    .limit(10),
-                supabase
-                    .from("time_blocks")
-                    .select("id,category,start_time")
-                    .eq("user_id", userId)
-                    .gte("start_time", startOfToday.toISOString())
-                    .lte("start_time", endOfToday.toISOString()),
-                supabase
-                    .from("xp_events")
-                    .select("created_at,delta_xp")
-                    .eq("user_id", userId)
-                    .gte("created_at", weekAgoStart.toISOString())
-                    .order("created_at", { ascending: true })
-            ]);
-
-            if (tasks.error) throw tasks.error;
-            if (habits.error) throw habits.error;
-            if (dailyLogs.error) throw dailyLogs.error;
-            if (spikeFlags.error) throw spikeFlags.error;
-            if (timeBlocks.error) throw timeBlocks.error;
-            if (xpEvents.error) throw xpEvents.error;
-
-            // Fetch GitHub archived daily logs
-            let githubLogs: DailyLogRow[] = [];
-            try {
-                const res = await fetch(`/api/archive?type=daily_logs`);
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json.data) {
-                        githubLogs = (json.data as DailyLogRow[][]).flat().filter((row) => row.log_date >= weekAgo);
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to fetch archived daily logs", e);
-            }
-
-            const taskRows = (tasks.data ?? []) as TaskRow[];
-            const habitRows = (habits.data ?? []) as HabitRow[];
-
-            // Deduplicate and merge logs favoring Supabase for more recent data
-            const supabaseLogRows = (dailyLogs.data ?? []) as DailyLogRow[];
-            const mergedLogsMap = new Map<string, DailyLogRow>();
-            githubLogs.forEach(l => mergedLogsMap.set(l.log_date, l));
-            supabaseLogRows.forEach(l => mergedLogsMap.set(l.log_date, l));
-            const dailyLogRows = Array.from(mergedLogsMap.values()).sort((a, b) => b.log_date.localeCompare(a.log_date));
-
-            const spikeFlagRows = (spikeFlags.data ?? []) as Array<{
-                id: string; title: string; body: string; created_at: string;
-            }>;
-            const timeBlockRows = (timeBlocks.data ?? []) as Array<Pick<TimeBlockRow, "id" | "category" | "start_time">>;
-            const xpRows = (xpEvents.data ?? []) as Array<{ created_at: string; delta_xp: number }>;
-
-            // Core metrics
-            const completedTasks = taskRows.filter((t) => t.status === "completed").length;
-            const totalTasks = taskRows.length;
-            const actionableTasks = taskRows.filter(isActionableTask);
-            const overdueTasks = actionableTasks.filter((t) => t.deadline_at && new Date(t.deadline_at).getTime() < now.getTime()).length;
-            const tasksDueToday = actionableTasks.filter((t) => t.deadline_at && toLocalDateKey(new Date(t.deadline_at)) === today).length;
-            const pendingTaskCount = actionableTasks.length;
-
-            const activeHabits = habitRows.filter((h) => h.is_active);
-            const habitsWithRecent = activeHabits.filter(
-                (h) => !!h.last_completed_on && h.last_completed_on >= weekAgo
-            );
-            const habitConsistency = activeHabits.length > 0 ? habitsWithRecent.length / activeHabits.length : 0;
-            const habitsPending = activeHabits.filter((h) => h.last_completed_on !== today).length;
-
-            const todayLog = dailyLogRows.find((l) => l.log_date === today) ?? null;
-            const dailyLogCompletion = todayLog ? Number(todayLog.daily_log_completion) : 0;
-
-            // Streak
-            const streakDates = taskRows
-                .filter((t) => t.completed_at)
-                .map((t) => t.completed_at as string);
-            const streak = computeTaskStreak(
-                streakDates,
-                Intl.DateTimeFormat().resolvedOptions().timeZone
-            );
-
-            // Relapse risk
-            const relapse = detectRelapseRisk({
-                missedHabitsLast3Days: Math.max(0, 3 - habitsWithRecent.length),
-                avgSleepHours7d:
-                    dailyLogRows.reduce((s, r) => s + Number(r.sleep_hours), 0) /
-                    Math.max(dailyLogRows.length, 1),
-                avgScreenMinutes7d:
-                    dailyLogRows.reduce((s, r) => s + r.screen_minutes, 0) /
-                    Math.max(dailyLogRows.length, 1),
-                disciplineScore: 0,
-                currentStreak: streak.currentStreak
-            });
-
-            // Deep work
-            const deepWorkHours = Number(
-                (timeBlockRows.filter((b) => b.category === "Deep Work").length * 0.5).toFixed(1)
-            );
-
-            // XP trend
-            const xpByDay = new Map<string, number>();
-            xpRows.forEach((r) => {
-                const key = toLocalDateKey(new Date(r.created_at));
-                xpByDay.set(key, (xpByDay.get(key) ?? 0) + r.delta_xp);
-            });
-            const weekdayFmt = new Intl.DateTimeFormat(undefined, { weekday: "short" });
-            const xpTrend = Array.from({ length: 7 }, (_, i) => {
-                const d = new Date(weekAgoStart);
-                d.setDate(weekAgoStart.getDate() + i);
-                return { date: weekdayFmt.format(d), xp: xpByDay.get(toLocalDateKey(d)) ?? 0 };
-            });
-
-            // Flags
-            const flagCount = spikeFlagRows.length + taskRows.filter((t) => t.is_flagged || t.override_reason).length;
-            const flagDetails = [
-                ...spikeFlagRows.slice(0, 5).map((f) => ({ id: f.id, msg: f.title, time: f.created_at })),
-            ];
-
-            return {
-                completedTasks,
-                totalTasks,
-                pendingTaskCount,
-                tasksDueToday,
-                overdueTasks,
-                habitConsistency,
-                habitsPending,
-                dailyLogCompletion,
-                todayLog,
-                streak,
-                relapse,
-                deepWorkHours,
-                xpTrend,
-                xpLast7Days: xpTrend.reduce((s, i) => s + i.xp, 0),
-                flagCount,
-                flagDetails,
-            };
-        }
-    });
+    const dashboardQuery = useDashboardMetrics(userId);
 
     const totalXP = summary.data?.totalXP ?? 0;
     const level = calculateLevel(totalXP, 100);
@@ -468,31 +301,41 @@ export default function DashboardPage() {
                     SECTION 1: HERO — Level Ring + Vital Stats
                 ═══════════════════════════════════════════════ */}
                 <div className="col-span-full">
-                    <div className="flex items-center gap-5 rounded-2xl border border-white/8 bg-card/40 p-5 backdrop-blur-xl">
-                        <LevelRing level={level} xp={totalXP} nextLevelXP={nextLevelXP} />
-                        <div className="flex-1 space-y-3">
-                            {/* Streak */}
-                            <div className="flex items-center gap-2">
-                                <Flame className="h-4 w-4 text-[var(--k-gold)]" />
-                                <span className="text-sm font-semibold text-foreground">
-                                    {dashboardQuery.data?.streak.currentStreak ?? 0}
-                                </span>
-                                <span className="text-xs text-muted-foreground">day streak</span>
-                            </div>
-                            {/* Discipline Score */}
-                            <div className="flex items-center gap-2">
-                                <Shield className="h-4 w-4" style={{ color: discipline.score < 45 ? "var(--k-red)" : discipline.score < 70 ? "var(--k-orange)" : "var(--k-green)" }} />
-                                <span className="text-sm font-semibold text-foreground">{discipline.score}%</span>
-                                <span className="text-xs text-muted-foreground">discipline</span>
-                            </div>
-                            {/* Risk */}
-                            <div className="flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4" style={{ color: riskColor }} />
-                                <span className="text-sm font-semibold capitalize" style={{ color: riskColor }}>
-                                    {riskTier}
-                                </span>
-                                <span className="text-xs text-muted-foreground">risk</span>
-                            </div>
+                    <div className="flex items-center gap-6 rounded-2xl border border-white/8 bg-card/40 p-4 backdrop-blur-xl overflow-x-auto hide-scrollbar">
+                        <div className="shrink-0">
+                            <LevelRing level={level} xp={totalXP} nextLevelXP={nextLevelXP} />
+                        </div>
+
+                        <div className="flex-1 flex items-stretch gap-3 min-w-[700px]">
+                            <TasksGraph
+                                pending={dashboardQuery.data?.pendingTaskCount ?? 0}
+                                completed={dashboardQuery.data?.completedTasks ?? 0}
+                                overdue={dashboardQuery.data?.overdueTasks ?? 0}
+                            />
+
+                            <HabitStatCard
+                                habits={dashboardQuery.data?.habitRows ?? []}
+                                h={dashboardQuery.data?.habitRows?.find(h => h.id === selectedHabitId) || dashboardQuery.data?.habitRows?.[0] || null}
+                                onSelect={setSelectedHabitId}
+                            />
+
+                            <LogStatCard
+                                logged={dashboardQuery.data?.loggedDays ?? 0}
+                                missed={dashboardQuery.data?.missedDays ?? 0}
+                                accountability={dashboardQuery.data?.avgAccountability ?? 0}
+                                energy={dashboardQuery.data?.avgEnergy ?? 0}
+                            />
+
+                            <NoteStatCard
+                                completed={dashboardQuery.data?.notesCompleted ?? 0}
+                                pending={dashboardQuery.data?.notesPending ?? 0}
+                                pinned={dashboardQuery.data?.notesPinned ?? 0}
+                            />
+
+                            <TrackStatCard
+                                total={dashboardQuery.data?.totalVisitsToday ?? 0}
+                                top={dashboardQuery.data?.topVisit ?? { name: "N/A", count: 0 }}
+                            />
                         </div>
                     </div>
                 </div>
@@ -591,7 +434,7 @@ export default function DashboardPage() {
                 {/* ═══════════════════════════════════════════════
                     SECTION 4.5: QUICK CONTEXT / RECENT NOTES
                 ═══════════════════════════════════════════════ */}
-                {(notes?.length ?? 0) > 0 && (
+                {(recentNotes?.length ?? 0) > 0 && (
                     <div className="col-span-full space-y-2 mt-2">
                         <div className="flex items-center justify-between px-1">
                             <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
@@ -602,7 +445,7 @@ export default function DashboardPage() {
                             </Link>
                         </div>
                         <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
-                            {notes.map((note) => (
+                            {recentNotes.map((note) => (
                                 <Link
                                     href={`/notes`}
                                     key={note.id}

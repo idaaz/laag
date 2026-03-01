@@ -1,32 +1,32 @@
 import { parseISO } from "date-fns";
 
-export interface XPPoint {
+export interface ExecutionGapPoint {
     date: string;
-    xp: number;
+    plannedMinutes: number;
+    actualMinutes: number;
+    gapMinutes: number; // planned - actual
 }
 
-export interface RadarPoint {
-    domain: "Health" | "Mind" | "Money" | "Discipline" | "Focus";
-    value: number;
+export interface HabitRisk {
+    habitId: string;
+    name: string;
+    riskScore: number; // 0-100, higher is worse (decaying)
+    recentMisses: number;
+    avgEnergy: number;
 }
 
-export interface HeatmapPoint {
-    date: string;
-    intensity: number;
-}
-
-export interface CategoryTimeBreakdown {
+export interface CategoryROI {
     category: string;
-    minutes: number;
-    percentage: number;
+    timeSpentMinutes: number;
+    tasksCompleted: number;
+    roiScore: number; // Tasks per hour invested, or similar logic
     color: string;
 }
 
-export interface ProductivityTrend {
-    weekOverWeekChange: number; // Percentage change
-    bestDay: { date: string; productivity: number } | null;
-    worstDay: { date: string; productivity: number } | null;
-    averageProductivity: number;
+export interface CommandTrendPoint {
+    date: string;
+    commandScore: number; // 0-100 aggregated score
+    disciplineScore: number;
 }
 
 export interface AnalyticsRawRows {
@@ -41,20 +41,23 @@ export interface AnalyticsRawRows {
         mood: number;
         productivity: number;
     }>;
+    timeBlocks: Array<{ start_time: string; end_time: string }>;
+    habits: Array<{ id: string; name: string; relapse_count: number }>;
+    completions: Array<{ habit_id: string; completion_date: string; }>;
+    tasks: Array<{ id: string; completed_at: string | null; created_at: string }>;
 }
 
 export interface AnalyticsViewModel {
-    xpGrowth: XPPoint[];
-    moodProductivity: Array<{ date: string; mood: number; productivity: number }>;
-    screenVsStudy: Array<{ date: string; studyHours: number; screenHours: number }>;
-    radar: RadarPoint[];
-    heatmap: HeatmapPoint[];
-    burnoutIndex: number;
-    overconfidenceIndex: number;
-    burnoutTrend: "improving" | "worsening" | "stable";
-    overconfidenceTrend: "improving" | "worsening" | "stable";
-    productivityTrend: ProductivityTrend;
-    categoryBreakdown: CategoryTimeBreakdown[];
+    executionGap: ExecutionGapPoint[];
+    habitRisk: HabitRisk[];
+    categoryROI: CategoryROI[];
+    commandTrend: CommandTrendPoint[];
+
+    // Top-line KPIs
+    avgCommandScore: number;
+    avgExecutionGap: number; // Avg minutes missed per day
+    atRiskHabitsCount: number;
+    commandTrendDirection: "improving" | "worsening" | "stable";
 }
 
 function normalizeDate(date: string, timezone: string): string {
@@ -81,168 +84,171 @@ export function buildAnalyticsSeries(
     rawRows: AnalyticsRawRows,
     timezone: string
 ): AnalyticsViewModel {
-    const xpGrowth = rawRows.xpDaily.map((row) => ({
-        date: normalizeDate(row.date, timezone),
-        xp: row.xp_total
-    }));
+    // 1. Execution Gap
+    const gapMap = new Map<string, ExecutionGapPoint>();
 
-    const moodProductivity = rawRows.logs.map((row) => ({
-        date: normalizeDate(row.date, timezone),
-        mood: row.mood,
-        productivity: row.productivity
-    }));
+    // Initialize with dates from time blocks
+    rawRows.timeBlocks.forEach(tb => {
+        const d = normalizeDate(tb.start_time.slice(0, 10), timezone);
+        const existing = gapMap.get(d) || { date: d, plannedMinutes: 0, actualMinutes: 0, gapMinutes: 0 };
 
-    const screenVsStudy = rawRows.logs.map((row) => ({
-        date: normalizeDate(row.date, timezone),
-        studyHours: Number((row.study_minutes / 60).toFixed(2)),
-        screenHours: Number((row.screen_minutes / 60).toFixed(2))
-    }));
+        const start = new Date(tb.start_time).getTime();
+        const end = new Date(tb.end_time).getTime();
+        const durationMins = Math.max(0, (end - start) / 60000);
 
-    const activityTotals = rawRows.logs.reduce(
-        (acc, row) => {
-            acc.health += row.workout_minutes + Math.max(0, 8 - Math.abs(8 - row.sleep_hours) * 2);
-            acc.mind += row.study_minutes + row.mood * 10;
-            acc.money += row.productivity * 8;
-            acc.discipline += row.productivity * 9;
-            acc.focus += Math.max(0, row.study_minutes - row.screen_minutes * 0.25);
-            acc.sleep += row.sleep_hours;
-            acc.study += row.study_minutes;
-            acc.screen += row.screen_minutes;
-            acc.productivity += row.productivity;
-            return acc;
-        },
-        {
-            health: 0,
-            mind: 0,
-            money: 0,
-            discipline: 0,
-            focus: 0,
-            sleep: 0,
-            study: 0,
-            screen: 0,
-            productivity: 0
+        // Since we don't have separate planned/actual stored explicitly, we'll
+        // consider the scheduled block as planned, and use an arbitrary execution rate
+        // proxy for the dashboard demo, or use log data to derive actual execution.
+        // For a true fix, `actual_duration` would need to be stored on time_blocks.
+        existing.plannedMinutes += durationMins;
+
+        gapMap.set(d, existing);
+    });
+
+    // As a proxy for 'actual', we will map logged study/work time against planned blocks
+    rawRows.logs.forEach(l => {
+        const d = normalizeDate(l.date, timezone);
+        if (gapMap.has(d)) {
+            const existing = gapMap.get(d)!;
+            const actualTotal = l.study_minutes + l.workout_minutes + (l.screen_minutes * 0.2); // Rough proxy for 'executed'
+            existing.actualMinutes = actualTotal;
+            existing.gapMinutes = existing.plannedMinutes - existing.actualMinutes;
         }
-    );
+    });
 
-    const count = Math.max(rawRows.logs.length, 1);
-    const radar: RadarPoint[] = [
-        { domain: "Health", value: Math.min(100, activityTotals.health / count) },
-        { domain: "Mind", value: Math.min(100, activityTotals.mind / count) },
-        { domain: "Money", value: Math.min(100, activityTotals.money / count) },
-        { domain: "Discipline", value: Math.min(100, activityTotals.discipline / count) },
-        { domain: "Focus", value: Math.min(100, activityTotals.focus / count) }
-    ];
+    const executionGap = Array.from(gapMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
-    const maxXP = Math.max(1, ...xpGrowth.map((point) => point.xp));
-    const heatmap = xpGrowth.map((point) => ({
-        date: point.date,
-        intensity: Number((point.xp / maxXP).toFixed(2))
-    }));
+    // Average Execution Gap
+    const avgExecutionGap = executionGap.length > 0
+        ? executionGap.reduce((sum, g) => sum + Math.max(0, g.gapMinutes), 0) / executionGap.length
+        : 0;
 
-    const avgSleep = activityTotals.sleep / count;
-    const avgStudy = activityTotals.study / count;
-    const avgScreen = activityTotals.screen / count;
-    const avgProductivity = activityTotals.productivity / count;
-    const completedTaskProxy = xpGrowth.reduce((sum, point) => sum + point.xp, 0) / count / 10;
+    // 2. Habit Risk
+    const habitRisk: HabitRisk[] = rawRows.habits.map(h => {
+        const comps = rawRows.completions.filter(c => c.habit_id === h.id);
 
-    const burnoutIndex = Math.min(
-        100,
-        Math.max(0, (6.5 - avgSleep) * 18 + (avgStudy / 60) * 7 + (avgScreen / 60) * 6)
-    );
-    const overconfidenceIndex = Math.min(
-        100,
-        Math.max(0, avgProductivity * 10 - completedTaskProxy * 12)
-    );
+        // Find misses in the last 7 days roughly by looking at completion density
+        // A simpler proxy: how many completions in the rawRows timeframe vs days length
+        const daysInPeriod = new Set(rawRows.discipline.map(d => normalizeDate(d.date, timezone))).size || 30;
+        const compCount = comps.length;
+        const recentMisses = Math.max(0, daysInPeriod - compCount);
 
-    // Trend calculation (compare first half vs second half)
-    const midPoint = Math.floor(rawRows.logs.length / 2);
-    const firstHalf = rawRows.logs.slice(0, midPoint);
-    const secondHalf = rawRows.logs.slice(midPoint);
+        // Without energy tracking, we rely entirely on miss rate for risk.
+        // If a habit misses 50% of the days, it has max risk (100).
+        const missFactor = Math.min(100, (recentMisses / (daysInPeriod * 0.5)) * 100);
 
-    const calcBurnout = (logs: typeof rawRows.logs) => {
-        if (logs.length === 0) return 0;
-        const avgS = logs.reduce((sum, l) => sum + l.sleep_hours, 0) / logs.length;
-        const avgSt = logs.reduce((sum, l) => sum + l.study_minutes, 0) / logs.length;
-        const avgSc = logs.reduce((sum, l) => sum + l.screen_minutes, 0) / logs.length;
-        return Math.min(100, Math.max(0, (6.5 - avgS) * 18 + (avgSt / 60) * 7 + (avgSc / 60) * 6));
-    };
+        const riskScore = Math.min(100, missFactor);
 
-    const calcOverconfidence = (logs: typeof rawRows.logs) => {
-        if (logs.length === 0) return 0;
-        const avgP = logs.reduce((sum, l) => sum + l.productivity, 0) / logs.length;
-        return Math.min(100, Math.max(0, avgP * 10 - completedTaskProxy * 12));
-    };
+        return {
+            habitId: h.id,
+            name: h.name,
+            riskScore: Number(riskScore.toFixed(0)),
+            recentMisses,
+            avgEnergy: 0
+        };
+    }).sort((a, b) => b.riskScore - a.riskScore);
 
-    const firstHalfBurnout = calcBurnout(firstHalf);
-    const secondHalfBurnout = calcBurnout(secondHalf);
-    const firstHalfOverconf = calcOverconfidence(firstHalf);
-    const secondHalfOverconf = calcOverconfidence(secondHalf);
+    const atRiskHabitsCount = habitRisk.filter(h => h.riskScore > 50).length;
 
-    const burnoutTrend = calculateTrend(secondHalfBurnout, firstHalfBurnout);
-    const overconfidenceTrend = calculateTrend(secondHalfOverconf, firstHalfOverconf);
+    // 3. Category ROI
+    const categoryStats = new Map<string, { timeSpent: number, tasksDone: number }>();
 
-    // Productivity trend
-    const sortedByProductivity = [...rawRows.logs].sort((a, b) => b.productivity - a.productivity);
-    const bestDay = sortedByProductivity[0]
-        ? { date: normalizeDate(sortedByProductivity[0].date, timezone), productivity: sortedByProductivity[0].productivity }
-        : null;
-    const worstDay = sortedByProductivity[sortedByProductivity.length - 1]
-        ? {
-            date: normalizeDate(sortedByProductivity[sortedByProductivity.length - 1].date, timezone),
-            productivity: sortedByProductivity[sortedByProductivity.length - 1].productivity
+    // Time spent approximated from tasks and logs (using logs for general categories logic)
+    // Actually, let's use tasks completed per category vs. total tasks to keep it simple, or map logs to categories if possible.
+    // We'll group tasks by category.
+    const validCategories = ["growth", "operations", "learning", "health"];
+
+    validCategories.forEach(cat => {
+        categoryStats.set(cat, { timeSpent: 0, tasksDone: 0 });
+    });
+
+    // Since tasks don't have explicit categories in DB right now,
+    // we randomly distribute completed tasks into 'operations' and 'growth' for proof of concept.
+    // In a real scenario, we'd need a tracking_categories mapping.
+    rawRows.tasks.forEach((t, index) => {
+        const cat = index % 3 === 0 ? "growth" : "operations";
+        const stat = categoryStats.get(cat)!;
+        if (t.completed_at) {
+            stat.tasksDone += 1;
         }
-        : null;
+    });
 
-    const weekOverWeekChange =
-        firstHalf.length > 0 && secondHalf.length > 0
-            ? ((secondHalf.reduce((sum, l) => sum + l.productivity, 0) / secondHalf.length -
-                firstHalf.reduce((sum, l) => sum + l.productivity, 0) / firstHalf.length) /
-                (firstHalf.reduce((sum, l) => sum + l.productivity, 0) / firstHalf.length)) *
-            100
-            : 0;
+    // Approximate time spent from logs
+    let totalStudy = 0, totalWorkout = 0, totalScreen = 0;
+    rawRows.logs.forEach(l => {
+        totalStudy += l.study_minutes;
+        totalWorkout += l.workout_minutes;
+        totalScreen += l.screen_minutes;
+    });
 
-    const productivityTrend: ProductivityTrend = {
-        weekOverWeekChange: Number(weekOverWeekChange.toFixed(1)),
-        bestDay,
-        worstDay,
-        averageProductivity: Number(avgProductivity.toFixed(1))
-    };
+    // Map log time to rough categories
+    if (categoryStats.has("learning")) categoryStats.get("learning")!.timeSpent = totalStudy;
+    if (categoryStats.has("health")) categoryStats.get("health")!.timeSpent = totalWorkout;
+    if (categoryStats.has("operations")) categoryStats.get("operations")!.timeSpent = totalScreen * 0.2; // some screen time is ops
 
-    // Category breakdown
-    const totalMinutes = activityTotals.study + activityTotals.screen + activityTotals.health;
-    const categoryBreakdown: CategoryTimeBreakdown[] = [
-        {
-            category: "Education",
-            minutes: activityTotals.study,
-            percentage: totalMinutes > 0 ? (activityTotals.study / totalMinutes) * 100 : 0,
-            color: "hsl(var(--chart-1))"
-        },
-        {
-            category: "Entertainment",
-            minutes: activityTotals.screen,
-            percentage: totalMinutes > 0 ? (activityTotals.screen / totalMinutes) * 100 : 0,
-            color: "hsl(var(--chart-4))"
-        },
-        {
-            category: "Health",
-            minutes: activityTotals.health,
-            percentage: totalMinutes > 0 ? (activityTotals.health / totalMinutes) * 100 : 0,
-            color: "hsl(var(--chart-2))"
+    const categoryROI: CategoryROI[] = Array.from(categoryStats.entries())
+        .map(([cat, stats]) => {
+            const timeHours = stats.timeSpent / 60;
+            // ROI = tasks per hour (if time is 0, just use tasks * 2 as a baseline)
+            const roiScore = timeHours > 0 ? stats.tasksDone / timeHours : stats.tasksDone * 2;
+
+            return {
+                category: cat,
+                timeSpentMinutes: stats.timeSpent,
+                tasksCompleted: stats.tasksDone,
+                roiScore: Number(roiScore.toFixed(2)),
+                color: `var(--k-${cat === 'health' ? 'green' : cat === 'learning' ? 'blue' : cat === 'growth' ? 'gold' : 'purple'})`
+            };
+        })
+        .filter(c => c.timeSpentMinutes > 0 || c.tasksCompleted > 0)
+        .sort((a, b) => b.roiScore - a.roiScore);
+
+    // 4. Command Score
+    const commandTrendMap = new Map<string, CommandTrendPoint>();
+
+    rawRows.discipline.forEach(d => {
+        const dStr = normalizeDate(d.date, timezone);
+        commandTrendMap.set(dStr, { date: dStr, disciplineScore: d.score, commandScore: d.score });
+    });
+
+    // Adjust command score based on execution gap for that day
+    Array.from(commandTrendMap.entries()).forEach(([date, point]) => {
+        const gap = gapMap.get(date);
+        let commandMod = point.disciplineScore;
+
+        if (gap && gap.plannedMinutes > 0) {
+            const executionRate = Math.min(1, gap.actualMinutes / gap.plannedMinutes);
+            // Blend discipline score with execution rate
+            commandMod = (point.disciplineScore * 0.6) + ((executionRate * 100) * 0.4);
         }
-    ].filter(cat => cat.minutes > 0);
+
+        point.commandScore = Number(commandMod.toFixed(1));
+    });
+
+    const commandTrend = Array.from(commandTrendMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+    const avgCommandScore = commandTrend.length > 0
+        ? commandTrend.reduce((sum, p) => sum + p.commandScore, 0) / commandTrend.length
+        : 0;
+
+    let commandTrendDirection: "improving" | "worsening" | "stable" = "stable";
+    if (commandTrend.length > 6) {
+        const mid = Math.floor(commandTrend.length / 2);
+        const firstHalf = commandTrend.slice(0, mid).reduce((sum, p) => sum + p.commandScore, 0) / mid;
+        const secondHalf = commandTrend.slice(mid).reduce((sum, p) => sum + p.commandScore, 0) / (commandTrend.length - mid);
+        if (secondHalf > firstHalf + 2) commandTrendDirection = "improving";
+        else if (secondHalf < firstHalf - 2) commandTrendDirection = "worsening";
+    }
 
     return {
-        xpGrowth,
-        moodProductivity,
-        screenVsStudy,
-        radar,
-        heatmap,
-        burnoutIndex,
-        overconfidenceIndex,
-        burnoutTrend,
-        overconfidenceTrend,
-        productivityTrend,
-        categoryBreakdown
+        executionGap,
+        habitRisk,
+        categoryROI,
+        commandTrend,
+        avgCommandScore: Number(avgCommandScore.toFixed(1)),
+        avgExecutionGap: Number(avgExecutionGap.toFixed(0)),
+        atRiskHabitsCount,
+        commandTrendDirection
     };
 }
 
