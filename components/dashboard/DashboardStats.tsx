@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ListTodo, Zap, NotebookPen, Flame, Smartphone } from "lucide-react";
+import { ListTodo, Zap, NotebookPen, Flame, Smartphone, type LucideIcon } from "lucide-react";
 import { Pie, PieChart, Cell, Tooltip as RechartsTooltip } from "recharts";
 import {
     Select,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import type { HabitRow } from "@/lib/supabase/types";
 
-export function StatCard({ title, children, icon: Icon, color }: { title: string; children: React.ReactNode; icon?: any; color?: string }) {
+export function StatCard({ title, children, icon: Icon, color }: { title: string; children: React.ReactNode; icon?: LucideIcon; color?: string }) {
     return (
         <div className="flex flex-col gap-2 p-3 rounded-xl border border-white/5 bg-white/2 min-w-[130px] flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -26,7 +26,7 @@ export function StatCard({ title, children, icon: Icon, color }: { title: string
     );
 }
 
-export function StatDonut({ data, centerText, centerSubtext }: { data: any[], centerText?: string, centerSubtext?: string }) {
+export function StatDonut({ data, centerText, centerSubtext }: { data: Array<{ value: number; color: string; name: string }>, centerText?: string, centerSubtext?: string }) {
     const activeData = data.filter(d => d.value > 0);
     // Prevent SSR/hydration mismatch — Recharts generates auto-incremented clipPathIds
     const [mounted, setMounted] = useState(false);

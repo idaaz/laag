@@ -39,8 +39,8 @@ export function ManageCustomRulesDialog({ open, onOpenChange, onSelectRule }: Ma
             await createCustomRule.mutateAsync({ urlPrefix: newPrefix.trim(), name: newName.trim() });
             setNewPrefix("");
             setNewName("");
-        } catch (err: any) {
-            setError(err.message || "Failed to create rule");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to create rule");
         } finally {
             setIsSubmitting(false);
         }
@@ -50,7 +50,7 @@ export function ManageCustomRulesDialog({ open, onOpenChange, onSelectRule }: Ma
         e.stopPropagation(); // prevent triggering the select action
         try {
             await deleteCustomRule.mutateAsync(id);
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
         }
     };
@@ -108,7 +108,7 @@ export function ManageCustomRulesDialog({ open, onOpenChange, onSelectRule }: Ma
                                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                             </div>
                         ) : rules.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center p-4">You don't have any custom rules yet.</p>
+                            <p className="text-xs text-muted-foreground text-center p-4">You don&apos;t have any custom rules yet.</p>
                         ) : (
                             <ul className="space-y-2">
                                 {rules.map((rule) => (

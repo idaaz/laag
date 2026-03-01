@@ -15,7 +15,8 @@ import {
   LayoutPanelLeft,
   Wand2,
   Video,
-  Shuffle
+  Shuffle,
+  X
 } from "lucide-react";
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";

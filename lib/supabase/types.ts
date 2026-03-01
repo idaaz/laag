@@ -134,6 +134,9 @@ export type VisitedUrlRow = {
   title: string | null;
   visited_at: string;
   is_in_app: boolean;
+  watch_time_seconds: number;
+  video_start_time: number | null;
+  video_end_time: number | null;
   created_at: string;
 };
 

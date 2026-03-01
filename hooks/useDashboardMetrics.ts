@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { computeTaskStreak } from "@/lib/engines/streakUtils";
 import { detectRelapseRisk } from "@/lib/engines/relapseEngine";
-import type { DailyLogRow, HabitRow, TaskRow, TimeBlockRow } from "@/lib/supabase/types";
+import type { DailyLogRow, HabitRow, TaskRow, TimeBlockRow, VisitedUrlRow } from "@/lib/supabase/types";
 
 function toLocalDateKey(date: Date) {
     const year = date.getFullYear();
@@ -110,7 +110,7 @@ export function useDashboardMetrics(userId?: string) {
             const timeBlockRows = (timeBlocks.data ?? []) as Array<Pick<TimeBlockRow, "id" | "category" | "start_time" | "energy_level">>;
             const xpRows = (xpEvents.data ?? []) as Array<{ created_at: string; delta_xp: number }>;
             const noteRows = (notes.data ?? []) as Array<{ id: string; pinned: boolean; archived: boolean }>;
-            const trackRows = (tracks.data ?? []) as Array<{ url: string; title: string | null; visited_at: string }>;
+            const trackRows = (tracks.data ?? []) as VisitedUrlRow[];
 
             // Core metrics
             const completedTasks = taskRows.filter((t) => t.status === "completed").length;

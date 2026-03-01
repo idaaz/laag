@@ -197,6 +197,7 @@ export default function DashboardPage() {
     const userId = user?.id;
     const [announcement, setAnnouncement] = useState<string | null>(null);
     const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+    const [flagsExpanded, setFlagsExpanded] = useState(false);
     const { summary } = useXP(userId);
     const timer = useTimer();
 

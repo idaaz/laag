@@ -1,0 +1,5 @@
+app/(protected)/dashboard/page.tsx(545,44): error TS2304: Cannot find name 'setFlagsExpanded'.
+app/(protected)/dashboard/page.tsx(545,62): error TS2304: Cannot find name 'flagsExpanded'.
+app/(protected)/dashboard/page.tsx(554,30): error TS2304: Cannot find name 'flagsExpanded'.
+app/(protected)/dashboard/page.tsx(560,26): error TS2304: Cannot find name 'flagsExpanded'.
+app/(protected)/tracking/page.tsx(345,16): error TS2304: Cannot find name 'X'.
