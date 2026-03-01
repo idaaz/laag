@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { VisitedUrlRow, TrackingCategoryRow, TrackingCustomRuleRow } from "@/lib/supabase/types";
+import type { VisitedUrlRow, TrackingCategoryRow, TrackingCustomRuleRow, TrackingIgnoredUrlRow } from "@/lib/supabase/types";
 
 export type TrackingAnalytics = {
     focusScore: number;
@@ -30,6 +30,7 @@ export type TrackingAnalytics = {
 const TRACKING_QUERY_KEY = ["visited_urls"];
 const TRACKING_CATEGORIES_KEY = ["tracking_categories"];
 const TRACKING_CUSTOM_RULES_KEY = ["tracking_custom_rules"];
+const TRACKING_IGNORED_RULES_KEY = ["tracking_ignored_rules"];
 
 export function useTracking(
     userId?: string,
@@ -239,6 +240,50 @@ export function useTracking(
         }
     });
 
+    // Ignored Rules API Query
+    const ignoredRulesQuery = useQuery({
+        queryKey: [...TRACKING_IGNORED_RULES_KEY, userId],
+        enabled: !!userId,
+        queryFn: async () => {
+            const res = await fetch("/api/tracking/ignored-rules");
+            if (!res.ok) {
+                const json = await res.json().catch(() => ({}));
+                throw new Error(json.error || `Failed to fetch ignored rules (${res.status})`);
+            }
+            const json = await res.json();
+            return (json.data ?? []) as TrackingIgnoredUrlRow[];
+        }
+    });
+
+    const createIgnoredRule = useMutation({
+        mutationFn: async ({ urlPattern }: { urlPattern: string }) => {
+            const res = await fetch("/api/tracking/ignored-rules", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url_pattern: urlPattern })
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || `Failed to create ignored rule (${res.status})`);
+            return json.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: TRACKING_IGNORED_RULES_KEY });
+        }
+    });
+
+    const deleteIgnoredRule = useMutation({
+        mutationFn: async (ruleId: string) => {
+            const res = await fetch(`/api/tracking/ignored-rules?id=${encodeURIComponent(ruleId)}`, {
+                method: "DELETE"
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || `Failed to delete ignored rule (${res.status})`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: TRACKING_IGNORED_RULES_KEY });
+        }
+    });
+
     return {
         visitedUrlsQuery,
         analyticsQuery,
@@ -248,7 +293,10 @@ export function useTracking(
         logInAppVisit,
         customRulesQuery,
         createCustomRule,
-        deleteCustomRule
+        deleteCustomRule,
+        ignoredRulesQuery,
+        createIgnoredRule,
+        deleteIgnoredRule
     };
 }
 

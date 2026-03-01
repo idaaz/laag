@@ -3,6 +3,40 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // Store state for each tab: { url, status: 'pending'|'tracked', title, timestamp, ignoreNext, recordId }
 let tabStates = {};
+let ignoredRules = []; // Array of strings (patterns)
+
+// Sync ignored rules from Supabase
+async function syncIgnoredRules() {
+    try {
+        const { userId } = await browser.storage.local.get(['userId']);
+        if (!userId) return;
+
+        console.log("URL Tracker: Syncing ignored rules...");
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/tracking_ignored_urls?user_id=eq.${userId}`, {
+            method: 'GET',
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            ignoredRules = data.map(rule => rule.url_pattern.toLowerCase());
+            await browser.storage.local.set({ ignoredRules });
+            console.log(`URL Tracker: Sync'd ${ignoredRules.length} ignored rules.`);
+        }
+    } catch (e) {
+        console.error("URL Tracker: Failed to sync ignored rules", e);
+    }
+}
+
+// Helper to check if a URL should be ignored
+function isUrlIgnored(url) {
+    if (!url) return true;
+    const lowerUrl = url.toLowerCase();
+    return ignoredRules.some(pattern => lowerUrl.includes(pattern));
+}
 
 // Helper to clear timer
 function clearTabTimer(tabId) {
@@ -24,7 +58,7 @@ async function sendToSupabase(tabId, url, title) {
         tabStates[tabId].title = title; // update with final title used
     }
 
-    const { userId } = await chrome.storage.local.get(['userId']);
+    const { userId } = await browser.storage.local.get(['userId']);
     if (!userId) {
         console.warn("URL Tracker: No User ID configured.");
         return;
@@ -32,6 +66,12 @@ async function sendToSupabase(tabId, url, title) {
 
     // Skip internal urls
     if (!url || url.startsWith('chrome://') || url.startsWith('about:') || url.startsWith('edge://')) return;
+
+    // Skip if URL matches blocklist
+    if (isUrlIgnored(url)) {
+        console.log("URL Tracker: Blocking tracking for ignored URL:", url);
+        return;
+    }
 
     try {
         console.log("URL Tracker: Sending to Supabase:", url, title);
@@ -64,42 +104,59 @@ async function sendToSupabase(tabId, url, title) {
                 // Store the ID in tabStates for future updates (watch time)
                 if (tabStates[tabId]) {
                     tabStates[tabId].recordId = record.id;
+
+                    // Flush any pending update that arrived while we were waiting for the ID
+                    if (tabStates[tabId].pendingUpdate) {
+                        const { watchTime, videoStart, videoEnd, totalDuration, channelName, youtubeCategory } = tabStates[tabId].pendingUpdate;
+                        console.log(`URL Tracker: Flushing pending update for ID ${record.id}: ${watchTime}s`);
+                        updateWatchTime(record.id, watchTime, videoStart, videoEnd, totalDuration, channelName, youtubeCategory);
+                        delete tabStates[tabId].pendingUpdate;
+                    }
                 }
             }
 
             // Update local history for popup
-            const { history = [] } = await chrome.storage.local.get(['history']);
+            const { history = [] } = await browser.storage.local.get(['history']);
             const newHistory = [{ url, title, time: Date.now(), success: true }, ...history].slice(0, 5);
-            await chrome.storage.local.set({ history: newHistory, lastSync: Date.now(), lastError: null });
+            await browser.storage.local.set({ history: newHistory, lastSync: Date.now(), lastError: null });
         } else {
             const err = await response.text();
             console.error("URL Tracker API Error:", response.status, err);
-            await chrome.storage.local.set({ lastError: `API ${response.status}: ${err}` });
+            await browser.storage.local.set({ lastError: `API ${response.status}: ${err}` });
         }
     } catch (error) {
         console.error("URL Tracker Network Error:", error);
-        await chrome.storage.local.set({ lastError: `Network Error: ${error.message}` });
+        await browser.storage.local.set({ lastError: `Network Error: ${error.message}` });
     }
 }
 
 // Listen for watch time updates from content script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'UPDATE_WATCH_TIME') {
         const tabId = sender.tab?.id;
-        if (tabId && tabStates[tabId]?.recordId) {
+        if (!tabId || !tabStates[tabId]) return;
+
+        // Double check if tab URL shifted to something ignored during the session
+        if (isUrlIgnored(sender.tab?.url)) {
+            return;
+        }
+
+        const { watchTime, videoStart, videoEnd, totalDuration, channelName, youtubeCategory } = message.data;
+
+        if (tabStates[tabId].recordId) {
+            // Success: record exists, update it normally
             const recordId = tabStates[tabId].recordId;
-            const { watchTime, videoStart, videoEnd } = message.data;
-
-            console.log(`URL Tracker: Updating watch time for ID ${recordId}: ${watchTime}s`);
-
-            // Update the record in Supabase
-            // We use a separate async function to not block the listener
-            updateWatchTime(recordId, watchTime, videoStart, videoEnd);
+            console.log(`URL Tracker: Updating watch time for ID ${recordId}: ${watchTime}s (${channelName})`);
+            updateWatchTime(recordId, watchTime, videoStart, videoEnd, totalDuration, channelName, youtubeCategory);
+        } else {
+            // Race condition: record doesn't exist yet, queue it
+            console.log(`URL Tracker: Queuing pending update for tab ${tabId} (waiting for recordId)`);
+            tabStates[tabId].pendingUpdate = message.data;
         }
     }
 });
 
-async function updateWatchTime(recordId, watchTime, videoStart, videoEnd) {
+async function updateWatchTime(recordId, watchTime, videoStart, videoEnd, totalDuration, channelName, youtubeCategory) {
     try {
         await fetch(`${SUPABASE_URL}/rest/v1/visited_urls?id=eq.${recordId}`, {
             method: 'PATCH',
@@ -111,7 +168,10 @@ async function updateWatchTime(recordId, watchTime, videoStart, videoEnd) {
             body: JSON.stringify({
                 watch_time_seconds: watchTime,
                 video_start_time: videoStart,
-                video_end_time: videoEnd
+                video_end_time: videoEnd,
+                total_duration_seconds: totalDuration,
+                channel_name: channelName,
+                youtube_category: youtubeCategory
             }),
             keepalive: true
         });
@@ -121,7 +181,7 @@ async function updateWatchTime(recordId, watchTime, videoStart, videoEnd) {
 }
 
 // 1. Detect reloads to ignore them
-chrome.webNavigation.onCommitted.addListener((details) => {
+browser.webNavigation.onCommitted.addListener((details) => {
     if (details.frameId === 0) {
         if (details.transitionType === 'reload') {
             console.log("URL Tracker: Detected reload for tab", details.tabId, " - Ignoring next completion.");
@@ -135,6 +195,12 @@ chrome.webNavigation.onCommitted.addListener((details) => {
 function handleNavigation(details) {
     if (details.frameId !== 0) return;
     const { tabId, url } = details;
+
+    if (isUrlIgnored(url)) {
+        console.log("URL Tracker: Navigation to ignored URL, skipping state setup:", url);
+        delete tabStates[tabId];
+        return;
+    }
 
     // Check if we should ignore this (reload)
     if (tabStates[tabId]?.ignoreNext) {
@@ -171,7 +237,7 @@ function handleNavigation(details) {
             if (tabStates[tabId]?.status === 'pending' && tabStates[tabId].url === url) {
                 console.log("URL Tracker: Timeout waiting for title, sending now.");
                 // Try to get current title from tab if possible, else use what we have
-                chrome.tabs.get(tabId).then(tab => {
+                browser.tabs.get(tabId).then(tab => {
                     sendToSupabase(tabId, url, tab.title || "Untitled");
                 }).catch(() => {
                     sendToSupabase(tabId, url, "Untitled");
@@ -181,11 +247,11 @@ function handleNavigation(details) {
     };
 }
 
-chrome.webNavigation.onCompleted.addListener(handleNavigation);
-chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
+browser.webNavigation.onCompleted.addListener(handleNavigation);
+browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
 
 // 3. Listen for Title Changes
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // We only care if title changed and we are tracking this tab
     if (changeInfo.title && tabStates[tabId]) {
         const state = tabStates[tabId];
@@ -200,7 +266,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 // 4. Tab Closed Listener
-chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+browser.tabs.onRemoved.addListener((tabId, removeInfo) => {
     if (tabStates[tabId]) {
         const state = tabStates[tabId];
         if (state.status === 'pending') {
@@ -239,24 +305,37 @@ async function setupHeaderStrippingRules() {
         ];
 
         // Replace any existing rules with this set
-        await chrome.declarativeNetRequest.updateDynamicRules({
-            removeRuleIds: [RULE_ID],
-            addRules: rules
-        });
-        console.log("URL Tracker: Header-stripping rules active.");
+        if (browser.declarativeNetRequest && browser.declarativeNetRequest.updateDynamicRules) {
+            await browser.declarativeNetRequest.updateDynamicRules({
+                removeRuleIds: [RULE_ID],
+                addRules: rules
+            });
+            console.log("URL Tracker: Header-stripping rules active.");
+        } else {
+            console.warn("URL Tracker: declarativeNetRequest not fully supported in this browser version. Header stripping disabled.");
+        }
     } catch (e) {
         console.error("URL Tracker: Failed to set up header-stripping rules", e);
     }
 }
 
 // Setup on startup and install
-chrome.runtime.onInstalled.addListener(() => {
+browser.runtime.onInstalled.addListener(() => {
     setupHeaderStrippingRules();
+    syncIgnoredRules();
 });
 
-chrome.runtime.onStartup.addListener(() => {
+browser.runtime.onStartup.addListener(() => {
     setupHeaderStrippingRules();
+    syncIgnoredRules();
 });
+
+// Periodic sync every 30 minutes
+setInterval(syncIgnoredRules, 1000 * 60 * 30);
 
 // Also run immediately in case it just loaded
 setupHeaderStrippingRules();
+browser.storage.local.get(['ignoredRules']).then(res => {
+    if (res.ignoredRules) ignoredRules = res.ignoredRules;
+    syncIgnoredRules();
+});

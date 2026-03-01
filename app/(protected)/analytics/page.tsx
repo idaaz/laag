@@ -2,12 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState, useMemo } from "react";
-import { BarChart3, TrendingUp, TrendingDown, Minus, PieChart } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InsightCard } from "@/components/analytics/InsightCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";

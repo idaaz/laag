@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { FileAttachment } from "@/lib/supabase/storage";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
     AlertTriangle,
     ArrowRight,
@@ -17,20 +16,12 @@ import {
     NotebookPen,
     Pause,
     Play,
-    Shield,
     Smartphone,
     Square,
     Target,
     Zap
 } from "lucide-react";
-import { Area, AreaChart, Pie, PieChart, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { LiveRegion } from "@/components/structure/LiveRegion";
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
@@ -38,14 +29,10 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useXP } from "@/hooks/useXP";
 import { evaluateDiscipline } from "@/lib/engines/disciplineEngine";
-import { detectRelapseRisk } from "@/lib/engines/relapseEngine";
-import { computeTaskStreak } from "@/lib/engines/streakUtils";
 import { calculateLevel } from "@/lib/engines/levelUtils";
 import { useTimer } from "@/lib/context/TimerContext";
 import { persistReminder } from "@/lib/notifications/scheduler";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRealtime } from "@/hooks/useRealtime";
-import type { DailyLogRow, HabitRow, TaskRow, TimeBlockRow } from "@/lib/supabase/types";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
 import { useNotes } from "@/hooks/useNotes";
 
@@ -192,7 +179,6 @@ import { TasksGraph, HabitStatCard, LogStatCard, NoteStatCard, TrackStatCard } f
 /* ─── Main Dashboard ──────────────────────────────────────── */
 
 export default function DashboardPage() {
-    const supabase = getSupabaseBrowserClient();
     const { user } = useAuth();
     const userId = user?.id;
     const [announcement, setAnnouncement] = useState<string | null>(null);
@@ -272,8 +258,6 @@ export default function DashboardPage() {
                 : timer.sessionType === "short_break" ? "Short Break"
                     : "Long Break";
 
-    const riskTier = dashboardQuery.data?.relapse.tier ?? "low";
-    const riskColor = riskTier === "high" ? "var(--k-red)" : riskTier === "medium" ? "var(--k-orange)" : "var(--k-green)";
 
     // KPIs for mobile overlay
     const kpis = useMemo(() => [

@@ -1,12 +1,22 @@
 "use client";
 
-import { X, Maximize2, Minimize2, ExternalLink, GripHorizontal, Move, LayoutPanelLeft, Globe } from "lucide-react";
+import { X, Maximize2, Minimize2, ExternalLink, GripHorizontal, LayoutPanelLeft, Globe } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { VisitedUrlRow } from "@/lib/supabase/types";
+import { Video, Clock } from "lucide-react";
 
-export function IframeViewer({ url, onClose }: { url: string | null; onClose: () => void }) {
+export function IframeViewer({
+    url,
+    entry,
+    onClose
+}: {
+    url: string | null;
+    entry?: VisitedUrlRow | null;
+    onClose: () => void
+}) {
     const [isMaximized, setIsMaximized] = useState(false);
     const [isDocked, setIsDocked] = useState(false);
     const [size, setSize] = useState({ width: "90%", height: "80vh" });
@@ -99,9 +109,27 @@ export function IframeViewer({ url, onClose }: { url: string | null; onClose: ()
                                 <button onClick={() => { setIsDocked(false); setIsMaximized(false); }} className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#febc2e]/80 transition-colors" />
                                 <button onClick={() => setIsMaximized(!isMaximized)} className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#28c840]/80 transition-colors" />
                             </div>
-                            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground bg-white/5 border border-white/5 px-3 py-1.5 rounded-full truncate max-w-sm">
-                                <Move className="w-3 h-3 opacity-50" />
-                                <span className="truncate opacity-80">{url}</span>
+                            <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground bg-white/5 border border-white/5 px-2 py-1 rounded-full w-fit">
+                                    <span className="truncate max-w-[200px] opacity-80">{url}</span>
+                                </div>
+                                {entry && (
+                                    <div className="flex items-center gap-2 mt-1 px-1">
+                                        <span className="text-[12px] font-bold text-foreground truncate max-w-[300px]">{entry.title || "Untitled"}</span>
+                                        {entry.channel_name && (
+                                            <div className="flex items-center gap-1 text-[9px] font-bold text-primary uppercase tracking-tighter bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
+                                                <Video className="w-2.5 h-2.5" />
+                                                {entry.channel_name}
+                                            </div>
+                                        )}
+                                        {(entry.total_duration_seconds ?? 0) > 0 && (
+                                            <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground uppercase tracking-tighter bg-secondary/30 px-1.5 py-0.5 rounded border border-border">
+                                                <Clock className="w-2.5 h-2.5" />
+                                                {Math.floor((entry.total_duration_seconds as number) / 60)}m {(entry.total_duration_seconds as number) % 60}s
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

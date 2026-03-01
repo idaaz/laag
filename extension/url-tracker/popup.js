@@ -25,6 +25,38 @@ let cachedKpi = null;
 function show(el) { el.classList.remove("hidden"); }
 function hide(el) { el.classList.add("hidden"); }
 
+function el(tag, className, textOrChildren, attrs = {}) {
+    const e = document.createElement(tag);
+    if (className) e.className = className;
+    for (let k in attrs) {
+        if (k === 'style') {
+            e.style.cssText = attrs[k];
+        } else {
+            e.setAttribute(k, attrs[k]);
+        }
+    }
+    if (Array.isArray(textOrChildren)) {
+        textOrChildren.forEach(child => child && (typeof child === 'string' ? e.appendChild(document.createTextNode(child)) : e.appendChild(child)));
+    } else if (textOrChildren != null) {
+        e.textContent = textOrChildren;
+    }
+    return e;
+}
+
+function createKpiCard(label, valueEl, sub, colorClass, span = 1) {
+    const card = el("div", "kpi-card", [], span > 1 ? { style: `grid-column: span ${span};` } : {});
+    card.appendChild(el("span", "kpi-label", label));
+
+    if (Array.isArray(valueEl)) {
+        card.appendChild(el("div", "", valueEl, { style: "display:flex; align-items:baseline; gap:6px;" }));
+    } else {
+        card.appendChild(el("span", `kpi-value ${colorClass}`, valueEl));
+    }
+
+    card.appendChild(el("span", "kpi-sub", sub));
+    return card;
+}
+
 function setStatus(label, type) {
     statusPill.textContent = label;
     statusPill.className = `status-pill ${type}`;
@@ -37,7 +69,7 @@ function fmt(n) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
-    const { userId, appUrl } = await chrome.storage.local.get(["userId", "appUrl"]);
+    const { userId, appUrl } = await browser.storage.local.get(["userId", "appUrl"]);
 
     if (!userId) {
         show(setupScreen);
@@ -68,7 +100,7 @@ connectBtn.addEventListener("click", async () => {
     }
 
     userIdInput.style.borderColor = "";
-    await chrome.storage.local.set({ userId: uid, appUrl: url });
+    await browser.storage.local.set({ userId: uid, appUrl: url });
     hide(setupScreen);
     show(loadingScreen);
     await fetchAndRender(uid, url);
@@ -80,7 +112,7 @@ settingsBtn.addEventListener("click", async () => {
     hide(loadingScreen);
     show(setupScreen);
 
-    const { userId, appUrl } = await chrome.storage.local.get(["userId", "appUrl"]);
+    const { userId, appUrl } = await browser.storage.local.get(["userId", "appUrl"]);
     if (userId) userIdInput.value = userId;
     if (appUrl) appUrlInput.value = appUrl;
     setStatus("Settings", "loading");
@@ -127,7 +159,7 @@ function renderDashboard(kpi) {
     show(dashboardScreen);
 
     const category = kpiCategory.value;
-    let html = "";
+    kpiContent.replaceChildren(); // Clear content
 
     // Toggle tracking highlights visibility
     if (category === "summary" || category === "tracking") {
@@ -139,136 +171,101 @@ function renderDashboard(kpi) {
 
     if (category === "summary") {
         const s = kpi.summary;
-        html = `
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <span class="kpi-label">Total XP</span>
-                    <span class="kpi-value kpi-blue">${fmt(s.totalXP)}</span>
-                    <span class="kpi-sub">Level ${s.level}</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Discipline</span>
-                    <span class="kpi-value kpi-gold">${s.disciplineScore}%</span>
-                    <span class="kpi-sub">Overall stability</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Focus</span>
-                    <span class="kpi-value kpi-teal">${Math.round(s.focusScore)}%</span>
-                    <span class="kpi-sub">30-day health</span>
-                </div>
-            </div>
-        `;
+        const grid = el("div", "kpi-grid", [
+            createKpiCard("Total XP", fmt(s.totalXP), `Level ${s.level}`, "kpi-blue"),
+            createKpiCard("Discipline", `${s.disciplineScore}%`, "Overall stability", "kpi-gold"),
+            createKpiCard("Focus", `${Math.round(s.focusScore)}%`, "30-day health", "kpi-teal")
+        ]);
+        kpiContent.appendChild(grid);
+
     } else if (category === "tasks") {
         const t = kpi.tasks;
-        html = `
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <span class="kpi-label">Pending</span>
-                    <span class="kpi-value kpi-gold">${t.pending}</span>
-                    <span class="kpi-sub">Active tasks</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Overdue</span>
-                    <span class="kpi-value kpi-red">${t.overdue}</span>
-                    <span class="kpi-sub">${t.overdue > 0 ? "Immediate action" : "On track"}</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Critical</span>
-                    <span class="kpi-value kpi-red">${t.critical}</span>
-                    <span class="kpi-sub">High priority</span>
-                </div>
-            </div>
-            <div class="section-title">Completion Rate</div>
-            <div style="font-size:12px; color:#71717a;">${Math.round((t.total - t.pending) / (t.total || 1) * 100)}% of life-time tasks completed</div>
-        `;
+        const grid = el("div", "kpi-grid", [
+            createKpiCard("Pending", String(t.pending), "Active tasks", "kpi-gold"),
+            createKpiCard("Overdue", String(t.overdue), t.overdue > 0 ? "Immediate action" : "On track", "kpi-red"),
+            createKpiCard("Critical", String(t.critical), "High priority", "kpi-red")
+        ]);
+        const rate = Math.round((t.total - t.pending) / (t.total || 1) * 100);
+        kpiContent.appendChild(grid);
+        kpiContent.appendChild(el("div", "section-title", "Completion Rate"));
+        kpiContent.appendChild(el("div", "", `${rate}% of life-time tasks completed`, { style: "font-size:12px; color:#71717a;" }));
+
     } else if (category === "habits") {
         const h = kpi.habits;
-        html = `
-            <div class="kpi-grid">
-                <div class="kpi-card" style="grid-column: span 3;">
-                    <span class="kpi-label">Today's Progress</span>
-                    <div style="display:flex; align-items:baseline; gap:6px;">
-                        <span class="kpi-value kpi-green">${h.loggedToday}</span>
-                        <span style="font-size:14px; color:#52525b;">/ ${h.totalActive} habits</span>
-                    </div>
-                </div>
-            </div>
-            <div class="section-title">Top Streaks</div>
-            ${h.streaks.map(s => `
-                <div class="domain-row">
-                    <span class="domain-name">${s.name}</span>
-                    <span class="domain-pct kpi-green">${s.streak}d</span>
-                </div>
-            `).join("")}
-        `;
+        const grid = el("div", "kpi-grid", [
+            createKpiCard("Today's Progress", [
+                el("span", "kpi-value kpi-green", String(h.loggedToday)),
+                el("span", "", `/ ${h.totalActive} habits`, { style: "font-size:14px; color:#52525b;" })
+            ], "", "", 3)
+        ]);
+        kpiContent.appendChild(grid);
+        kpiContent.appendChild(el("div", "section-title", "Top Streaks"));
+
+        h.streaks.forEach(s => {
+            kpiContent.appendChild(el("div", "domain-row", [
+                el("span", "domain-name", s.name),
+                el("span", "domain-pct kpi-green", `${s.streak}d`)
+            ]));
+        });
+
     } else if (category === "tracking") {
         const tr = kpi.tracking;
-        html = `
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <span class="kpi-label">Visits</span>
-                    <span class="kpi-value kpi-indigo">${fmt(tr.totalVisits)}</span>
-                    <span class="kpi-sub">Total 30d</span>
-                </div>
-                <div class="kpi-card" style="grid-column: span 2;">
-                    <span class="kpi-label">Unique Domains</span>
-                    <span class="kpi-value kpi-blue">${tr.uniqueDomains}</span>
-                    <span class="kpi-sub">Engagement span</span>
-                </div>
-            </div>
-        `;
+        const grid = el("div", "kpi-grid", [
+            createKpiCard("Visits", fmt(tr.totalVisits), "Total 30d", "kpi-indigo"),
+            createKpiCard("Unique Domains", String(tr.uniqueDomains), "Engagement span", "kpi-blue", 2)
+        ]);
+        kpiContent.appendChild(grid);
+
     } else if (category === "logs") {
         const l = kpi.logs;
-        html = `
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <span class="kpi-label">Mood</span>
-                    <span class="kpi-value kpi-blue">${l.recentMood}/10</span>
-                    <span class="kpi-sub">Avg 7d</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Energy</span>
-                    <span class="kpi-value kpi-teal">${l.recentProductivity}/10</span>
-                    <span class="kpi-sub">Avg 7d</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Status</span>
-                    <span class="kpi-value ${l.hasLoggedToday ? "kpi-green" : "kpi-red"}">${l.hasLoggedToday ? "DONE" : "MISSING"}</span>
-                    <span class="kpi-sub">Today</span>
-                </div>
-            </div>
-        `;
+        const grid = el("div", "kpi-grid", [
+            createKpiCard("Mood", `${l.recentMood}/10`, "Avg 7d", "kpi-blue"),
+            createKpiCard("Energy", `${l.recentProductivity}/10`, "Avg 7d", "kpi-teal"),
+            createKpiCard("Status", l.hasLoggedToday ? "DONE" : "MISSING", "Today", l.hasLoggedToday ? "kpi-green" : "kpi-red")
+        ]);
+        kpiContent.appendChild(grid);
     }
-
-    kpiContent.innerHTML = html;
 }
 
 function renderTrackingExtras(tracking) {
     // Top Domains
     const domains = tracking.topDomains ?? [];
+    domainsList.replaceChildren();
+
     if (domains.length === 0) {
-        domainsList.innerHTML = `<div style="font-size:11px;color:#3f3f46;padding:6px 0;">No domain data yet</div>`;
+        domainsList.appendChild(el("div", "", "No domain data yet", { style: "font-size:11px;color:#3f3f46;padding:6px 0;" }));
     } else {
         const maxPct = Math.max(...domains.map((d) => d.percentage ?? d.count), 1);
-        domainsList.innerHTML = domains.map((d) => {
+        domains.forEach(d => {
             const pct = d.percentage ?? 0;
             const barW = Math.round((pct / maxPct) * 100);
             const name = (d.domain || "").replace(/^www\./, "");
-            return `
-        <div class="domain-row">
-          <span class="domain-name" title="${d.domain}">${name}</span>
-          <div class="domain-bar-wrap"><div class="domain-bar" style="width:${barW}%"></div></div>
-          <span class="domain-pct">${Math.round(pct)}%</span>
-        </div>`;
-        }).join("");
+
+            const row = el("div", "domain-row", [
+                el("span", "domain-name", name, { title: d.domain }),
+                el("div", "domain-bar-wrap", [
+                    el("div", "domain-bar", "", { style: `width:${barW}%` })
+                ]),
+                el("span", "domain-pct", `${Math.round(pct)}%`)
+            ]);
+            domainsList.appendChild(row);
+        });
     }
 
     // Categories
     const cats = tracking.categories ?? [];
-    categoriesList.innerHTML = cats.length === 0
-        ? `<span style="font-size:11px;color:#3f3f46;">No categories yet</span>`
-        : cats.map((c) => `
-        <span class="cat-pill" style="border-color:${c.color || "rgba(255,255,255,0.1)"}; color:${c.color || "#a1a1aa"}">
-          ${c.category} · ${Math.round(c.percentage ?? 0)}%
-        </span>`).join("");
+    categoriesList.replaceChildren();
+
+    if (cats.length === 0) {
+        categoriesList.appendChild(el("span", "", "No categories yet", { style: "font-size:11px;color:#3f3f46;" }));
+    } else {
+        cats.forEach(c => {
+            const color = c.color || "#a1a1aa";
+            const borderColor = c.color || "rgba(255,255,255,0.1)";
+            const pill = el("span", "cat-pill", `${c.category} · ${Math.round(c.percentage ?? 0)}%`, {
+                style: `border-color:${borderColor}; color:${color}`
+            });
+            categoriesList.appendChild(pill);
+        });
+    }
 }

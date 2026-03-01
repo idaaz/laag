@@ -137,6 +137,15 @@ export type VisitedUrlRow = {
   watch_time_seconds: number;
   video_start_time: number | null;
   video_end_time: number | null;
+  channel_name: string | null;
+  total_duration_seconds: number | null;
+  youtube_category: string | null;
+};
+
+export type TrackingIgnoredUrlRow = {
+  id: string;
+  user_id: string;
+  url_pattern: string;
   created_at: string;
 };
 

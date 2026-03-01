@@ -7,16 +7,14 @@ import {
   Globe,
   Target,
   TrendingUp,
-  Clock,
   Search,
-  Filter,
-  Plus,
   ExternalLink,
   LayoutPanelLeft,
   Wand2,
   Video,
   Shuffle,
-  X
+  X,
+  ShieldX
 } from "lucide-react";
 import { PageFrame } from "@/components/structure/PageFrame";
 import { SectionHeader } from "@/components/structure/SectionHeader";
@@ -27,9 +25,10 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { InsightCard } from "@/components/analytics/InsightCard";
 import { TrackingCategoriesPieChart } from "@/components/analytics/TrackingCategoriesPieChart";
 import { IframeViewer } from "@/components/tracking/IframeViewer";
+import { ManageCustomRulesDialog } from "@/components/tracking/ManageCustomRulesDialog";
+import { ManageIgnoredRulesDialog } from "@/components/tracking/ManageIgnoredRulesDialog";
 import { ManageCategoriesDialog } from "@/components/tracking/ManageCategoriesDialog";
 import { AssignDomainDialog } from "@/components/tracking/AssignDomainDialog";
-import { ManageCustomRulesDialog } from "@/components/tracking/ManageCustomRulesDialog";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,7 +36,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useTracking } from "@/hooks/useTracking";
 import { useRegisterKPIs } from "@/lib/context/MobileKPIContext";
-import { TrackingCustomRuleRow } from "@/lib/supabase/types";
+import { TrackingCustomRuleRow, VisitedUrlRow } from "@/lib/supabase/types";
+import { VideoDetailsDialog } from "@/components/tracking/VideoDetailsDialog";
+import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 10;
 
@@ -49,8 +50,6 @@ function formatDuration(seconds: number) {
   return `${mins}m ${secs}s`;
 }
 
-import { useSearchParams } from "next/navigation";
-
 export default function TrackingPage() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
@@ -60,11 +59,18 @@ export default function TrackingPage() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  const [selectedEntryForPreview, setSelectedEntryForPreview] = useState<VisitedUrlRow | null>(null);
   const [timeRange, setTimeRange] = useState<[number, number]>([0, 24]);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [isManageCustomRulesOpen, setIsManageCustomRulesOpen] = useState(false);
+  const [isManageIgnoredRulesOpen, setIsManageIgnoredRulesOpen] = useState(false);
   const [selectedCustomRule, setSelectedCustomRule] = useState<TrackingCustomRuleRow | null>(null);
   const [domainToAssign, setDomainToAssign] = useState<string | null>(null);
+  const [detailsEntry, setDetailsEntry] = useState<VisitedUrlRow | null>(null);
+
+  const handleOpenDetails = (entry: VisitedUrlRow) => {
+    setDetailsEntry(entry);
+  };
 
   const { visitedUrlsQuery, analyticsQuery, logInAppVisit } = useTracking(
     userId,
@@ -90,9 +96,10 @@ export default function TrackingPage() {
     setPage(1);
   }, [selectedCustomRule]);
 
-  function handlePreviewUrl(url: string, title: string | null) {
-    setSelectedUrl(url);
-    logInAppVisit.mutate({ url, title: title || "In-App Preview" });
+  function handlePreviewUrl(entry: VisitedUrlRow) {
+    setSelectedUrl(entry.url);
+    setSelectedEntryForPreview(entry);
+    logInAppVisit.mutate({ url: entry.url, title: entry.title || "In-App Preview" });
   }
 
   const urls = useMemo(() => visitedUrlsQuery.data?.data ?? [], [visitedUrlsQuery.data]);
@@ -186,6 +193,15 @@ export default function TrackingPage() {
                 title="Custom Tracking Rules"
               >
                 <Wand2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setIsManageIgnoredRulesOpen(true)}
+                title="Manage Ignored URLs (Blocklist)"
+              >
+                <ShieldX className="h-4 w-4" />
               </Button>
             </div>
           }
@@ -364,13 +380,11 @@ export default function TrackingPage() {
                 {filteredUrls.map((entry) => (
                   <article
                     key={entry.id}
-                    className="p-3 hover:bg-secondary/50 transition-colors group"
+                    className="p-3 hover:bg-secondary/50 transition-colors group cursor-pointer"
+                    onClick={() => handleOpenDetails(entry)}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div
-                        className="min-w-0 flex-1 cursor-pointer"
-                        onClick={() => handlePreviewUrl(entry.url, entry.title)}
-                      >
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium" title={entry.title || "Untitled"}>
                           {entry.title || "Untitled"}
                         </p>
@@ -378,12 +392,12 @@ export default function TrackingPage() {
                           {entry.url}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 rounded-md border border-border bg-background/50"
-                          onClick={() => handlePreviewUrl(entry.url, entry.title)}
+                          onClick={() => handlePreviewUrl(entry)}
                           title="Open in Popup"
                         >
                           <LayoutPanelLeft className="h-3.5 w-3.5" />
@@ -401,13 +415,23 @@ export default function TrackingPage() {
                       </div>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <p className="text-[11px] text-muted-foreground">
-                        {format(new Date(entry.visited_at), "MMM d, HH:mm")}
-                      </p>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-[11px] text-muted-foreground">
+                          {format(new Date(entry.visited_at), "MMM d, HH:mm")}
+                        </p>
+                        {entry.channel_name && (
+                          <p className="text-[10px] font-medium text-primary/80 uppercase tracking-tight">
+                            {entry.channel_name}
+                          </p>
+                        )}
+                      </div>
                       {entry.watch_time_seconds > 0 && (
                         <div className="flex items-center gap-1 text-[11px] font-medium text-primary">
                           <Video className="h-3 w-3" />
-                          <span>{formatDuration(entry.watch_time_seconds)}</span>
+                          <span>
+                            {formatDuration(entry.watch_time_seconds)}
+                            {(entry.total_duration_seconds ?? 0) > 0 && ` / ${formatDuration(entry.total_duration_seconds as number)}`}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -428,27 +452,31 @@ export default function TrackingPage() {
                   {filteredUrls.map((entry) => (
                     <tr
                       key={entry.id}
-                      className="group transition-colors hover:bg-secondary/50"
+                      className="group transition-colors hover:bg-secondary/50 cursor-pointer"
+                      onClick={() => handleOpenDetails(entry)}
                     >
-                      <td
-                        className="max-w-[220px] truncate px-3 py-2 font-medium cursor-pointer"
-                        onClick={() => handlePreviewUrl(entry.url, entry.title)}
-                        title={entry.title || "Untitled"}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Globe className="h-3.5 w-3.5 text-primary/70" />
-                          <span className="truncate">{entry.title || "Untitled"}</span>
+                      <td className="max-w-[220px] truncate px-3 py-2 font-medium" title={entry.title || "Untitled"}>
+                        <div className="flex flex-col gap-0.5 overflow-hidden">
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-3.5 w-3.5 text-primary/70" />
+                            <span className="truncate">{entry.title || "Untitled"}</span>
+                          </div>
+                          {entry.channel_name && (
+                            <span className="text-[10px] text-muted-foreground/80 pl-5 truncate">
+                              {entry.channel_name}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="max-w-[240px] truncate px-3 py-2 text-muted-foreground" title={entry.url}>
                         <div className="flex items-center gap-2">
                           <span className="truncate flex-1">{entry.url}</span>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
-                              onClick={() => handlePreviewUrl(entry.url, entry.title)}
+                              onClick={() => handlePreviewUrl(entry)}
                               title="Open in Popup"
                             >
                               <LayoutPanelLeft className="h-3.5 w-3.5" />
@@ -466,13 +494,22 @@ export default function TrackingPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-xs font-medium text-primary">
+                      <td className="px-3 py-2">
                         {entry.watch_time_seconds > 0 ? (
-                          <div className="flex items-center gap-1">
-                            <Video className="h-3 w-3" />
-                            {formatDuration(entry.watch_time_seconds)}
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5 text-primary font-medium">
+                              <Video className="h-3 w-3" />
+                              <span>{formatDuration(entry.watch_time_seconds)}</span>
+                            </div>
+                            {(entry.total_duration_seconds ?? 0) > 0 && (
+                              <span className="text-[10px] text-muted-foreground/70 pl-4">
+                                of {formatDuration(entry.total_duration_seconds as number)}
+                              </span>
+                            )}
                           </div>
-                        ) : "-"}
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right text-xs text-muted-foreground">
                         {format(new Date(entry.visited_at), "MMM d, HH:mm")}
@@ -481,7 +518,7 @@ export default function TrackingPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </div >
 
             <PaginationControls
               currentPage={page}
@@ -498,10 +535,28 @@ export default function TrackingPage() {
               description={search ? "Try another term." : "Visit sites to track."}
             />
           </div>
-        )}
-      </div>
+        )
+        }
+      </div >
 
-      <IframeViewer url={selectedUrl} onClose={() => setSelectedUrl(null)} />
+      <IframeViewer
+        url={selectedUrl}
+        entry={selectedEntryForPreview}
+        onClose={() => {
+          setSelectedUrl(null);
+          setSelectedEntryForPreview(null);
+        }}
+      />
+
+      <VideoDetailsDialog
+        entry={detailsEntry}
+        open={!!detailsEntry}
+        onOpenChange={(open) => !open && setDetailsEntry(null)}
+        onPreview={(entry) => {
+          setDetailsEntry(null);
+          handlePreviewUrl(entry);
+        }}
+      />
 
       <ManageCategoriesDialog
         open={isManageCategoriesOpen}
@@ -512,6 +567,11 @@ export default function TrackingPage() {
         open={isManageCustomRulesOpen}
         onOpenChange={setIsManageCustomRulesOpen}
         onSelectRule={setSelectedCustomRule}
+      />
+
+      <ManageIgnoredRulesDialog
+        open={isManageIgnoredRulesOpen}
+        onOpenChange={setIsManageIgnoredRulesOpen}
       />
 
       <AssignDomainDialog

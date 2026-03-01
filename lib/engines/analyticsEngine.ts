@@ -74,11 +74,6 @@ function normalizeDate(date: string, timezone: string): string {
     return `${year}-${month}-${day}`;
 }
 
-function calculateTrend(recentValue: number, previousValue: number): "improving" | "worsening" | "stable" {
-    const change = recentValue - previousValue;
-    if (Math.abs(change) < 5) return "stable";
-    return change > 0 ? "worsening" : "improving"; // Lower burnout/overconfidence is better
-}
 
 export function buildAnalyticsSeries(
     rawRows: AnalyticsRawRows,
